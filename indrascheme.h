@@ -42,7 +42,14 @@ class ISAtom {
 
 class IndraScheme {
   public:
+    map<string, std::function<ISAtom *(ISAtom *)>> inbuilts;
+
     IndraScheme() {
+        for (auto cm_op : "+-*/%") {
+            if (cm_op == 0) continue;
+            string m_op{cm_op};
+            inbuilts[m_op] = [this, m_op](ISAtom *pisa) -> ISAtom * { return math_2ops(pisa, m_op); };
+        }
     }
 
     bool is_int(string token, bool nat = false) {
@@ -294,8 +301,57 @@ class IndraScheme {
         }
     }
 
-    bool eval(ISAtom *pisa) {
-        return false;
+    ISAtom *math_2ops(ISAtom *pisa, string m_op) {
+        if (m_op == "+") {
+            cout << "plus" << endl;
+            int sum = 0;
+            ISAtom *p = pisa;
+            while (p != nullptr) {
+                if (p->t == ISAtom::TokType::INT) {
+                    sum += p->val;
+                    p = p->pNext;
+                } else if (p->t == ISAtom::TokType::BRANCH) {
+                    cout << "sub-eval!" << endl;
+                    p = eval(p);
+                    sum += p->val;
+                    p = p->pNext;
+                } else {
+                    cout << "SKIP: " << p->t << " " << p->vals << endl;
+                    p = p->pNext;
+                }
+            }
+            ISAtom *pRes = new ISAtom();
+            pRes->t = ISAtom::TokType::INT;
+            pRes->val = sum;
+            return pRes;
+        } else {
+            cout << "Not-implemented: " << m_op << endl;
+            return nullptr;
+        }
+    }
+
+    bool is_inbuilt(string funcName) {
+        if (inbuilts.find(funcName) == inbuilts.end()) return false;
+        return true;
+    }
+
+    ISAtom *eval(ISAtom *pisa) {
+        switch (pisa->t) {
+        case ISAtom::TokType::BRANCH:
+            return eval(pisa->pChild);
+            break;
+        case ISAtom::TokType::SYMBOL:
+            if (is_inbuilt(pisa->vals)) {
+                cout << "calling: " << pisa->vals << endl;
+                return inbuilts[pisa->vals](pisa->pNext);
+            }
+            cout << "Not implemented: " << pisa->vals << endl;
+            return nullptr;
+            break;
+        default:
+            return pisa;
+            break;
+        }
     }
 };
 

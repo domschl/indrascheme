@@ -11,6 +11,7 @@
 
 using insch::IndraScheme;
 using insch::ISAtom;
+using std::endl;
 using std::string;
 
 vector<string> input_history;
@@ -161,20 +162,20 @@ void repl(std::string &prompt, std::string &prompt2) {
         ISAtom *pisa = ins.parse(cmd);
 
         std::cout << std::endl;
-        auto start = std::chrono::steady_clock::now();
-        int used_cycles = 0;
-        int max_cycles = 0;  // 0: no max
         ins.print(pisa);
-        // il.eval(ps, &st, &used_cycles, max_cycles);
-        ins.eval(pisa);
+        auto start = std::chrono::steady_clock::now();
+        cout << "start eval" << endl;
+        pisa = ins.eval(pisa);
+        cout << "end eval" << endl;
+        ins.print(pisa);
 
         auto diff = std::chrono::steady_clock::now() - start;
-        std::cout << std::endl;
+        std::cout << endl;
 
         std::cout << "Eval dt: "
                   << std::chrono::duration<double, std::nano>(diff).count()
                   << " ns"
-                  << ", " << used_cycles << " cycles" << std::endl;  //, stack size: " << st.size() << std::endl;
+                  << ", " << endl;
     }
 }
 
