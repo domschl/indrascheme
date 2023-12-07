@@ -164,9 +164,7 @@ void repl(std::string &prompt, std::string &prompt2) {
         std::cout << std::endl;
         ins.print(pisa);
         auto start = std::chrono::steady_clock::now();
-        cout << "start eval" << endl;
         pisa = ins.eval(pisa);
-        cout << "end eval" << endl;
         ins.print(pisa);
 
         auto diff = std::chrono::steady_clock::now() - start;

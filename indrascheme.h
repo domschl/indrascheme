@@ -302,35 +302,149 @@ class IndraScheme {
     }
 
     ISAtom *math_2ops(ISAtom *pisa, string m_op) {
-        if (m_op == "+") {
-            cout << "plus" << endl;
-            int sum = 0;
-            ISAtom *p = pisa;
-            while (p != nullptr) {
-                if (p->t == ISAtom::TokType::INT) {
-                    sum += p->val;
-                    p = p->pNext;
-                } else if (p->t == ISAtom::TokType::BRANCH) {
-                    cout << "sub-eval!" << endl;
-                    p = eval(p);
-                    sum += p->val;
-                    p = p->pNext;
+        // cout << m_op << endl;
+        int res = 0;
+        double fres = 0.0;
+        ISAtom *p = pisa;
+        bool fl = false;
+        bool first = true;
+        ISAtom *pRes = new ISAtom();
+
+        while (p != nullptr) {
+            if (p->t == ISAtom::TokType::INT) {
+                if (first) {
+                    res = p->val;
+                    first = false;
                 } else {
-                    cout << "SKIP: " << p->t << " " << p->vals << endl;
-                    p = p->pNext;
+                    if (m_op == "+") {
+                        if (fl)
+                            fres += p->val;
+                        else
+                            res += p->val;
+                    } else if (m_op == "-") {
+                        if (fl)
+                            fres -= p->val;
+                        else
+                            res -= p->val;
+                    } else if (m_op == "*") {
+                        if (fl)
+                            fres = fres * p->val;
+                        else
+                            res = res * p->val;
+                    } else if (m_op == "/") {
+                        if (p->val == 0) {
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "DIV/ZERO!";
+                            return pRes;
+                        } else {
+                            if (fl) {
+                                fres /= p->val;
+                            } else {
+                                res /= p->val;
+                            }
+                        }
+                    } else if (m_op == "%") {
+                        if (p->val == 0) {
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "DIV/ZERO!";
+                            return pRes;
+                        } else {
+                            if (fl)
+                                fres = (int)fres % p->val;
+                            else
+                                res = res % p->val;
+                        }
+                    } else {
+                        pRes->t = ISAtom::TokType::ERROR;
+                        pRes->vals = "Op-not-impl: " + m_op;
+                        return pRes;
+                    }
                 }
+                p = p->pNext;
+            } else if (p->t == ISAtom::TokType::FLOAT) {
+                if (first) {
+                    fres = p->valf;
+                    first = false;
+                    fl = true;
+                } else {
+                    if (m_op == "+") {
+                        if (!fl) {
+                            fres = res;
+                            fres += p->valf;
+                            fl = true;
+                        } else
+                            fres += p->valf;
+                    } else if (m_op == "-") {
+                        if (!fl) {
+                            fres = res;
+                            fres -= p->valf;
+                            fl = true;
+                        } else
+                            fres -= p->valf;
+                    } else if (m_op == "*") {
+                        if (!fl) {
+                            fres = res;
+                            fres *= p->valf;
+                            fl = true;
+                        } else
+                            fres *= p->valf;
+                    } else if (m_op == "/") {
+                        if (p->valf == 0) {
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "DIV/ZERO!";
+                            return pRes;
+                        } else {
+                            if (!fl) {
+                                fres = res;
+                                fres /= p->valf;
+                                fl = true;
+                            } else {
+                                fres /= p->valf;
+                            }
+                        }
+                    } else if (m_op == "%") {
+                        if (p->valf == 0) {
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "DIV/ZERO!";
+                            return pRes;
+                        } else {
+                            if (!fl) {
+                                fres = res;
+                                fres = (int)fres % (int)p->valf;
+                                fl = true;
+                            } else {
+                                fres = (int)fres % (int)p->valf;
+                            }
+                        }
+                    } else {
+                        pRes->t = ISAtom::TokType::ERROR;
+                        pRes->vals = "Op-not-impl: " + m_op;
+                        return pRes;
+                    }
+                }
+                p = p->pNext;
+            } else if (p->t == ISAtom::TokType::BRANCH) {
+                // cout << "sub-eval!" << endl;
+                p = eval(p);
+                // sum += p->val;
+                // p = p->pNext;
+            } else {
+                // cout << "SKIP: " << p->t << " " << p->vals << endl;
+                p = p->pNext;
             }
-            ISAtom *pRes = new ISAtom();
-            pRes->t = ISAtom::TokType::INT;
-            pRes->val = sum;
-            return pRes;
-        } else {
-            cout << "Not-implemented: " << m_op << endl;
-            return nullptr;
         }
+        if (fl) {
+            pRes->t = ISAtom::TokType::FLOAT;
+            pRes->valf = fres;
+        } else {
+            pRes->t = ISAtom::TokType::INT;
+            pRes->val = res;
+        }
+        return pRes;
     }
 
-    bool is_inbuilt(string funcName) {
+    bool
+    is_inbuilt(string funcName) {
         if (inbuilts.find(funcName) == inbuilts.end()) return false;
         return true;
     }
@@ -342,7 +456,7 @@ class IndraScheme {
             break;
         case ISAtom::TokType::SYMBOL:
             if (is_inbuilt(pisa->vals)) {
-                cout << "calling: " << pisa->vals << endl;
+                // cout << "calling: " << pisa->vals << endl;
                 return inbuilts[pisa->vals](pisa->pNext);
             }
             cout << "Not implemented: " << pisa->vals << endl;
