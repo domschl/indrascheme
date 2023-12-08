@@ -512,6 +512,8 @@ class IndraScheme {
                 while (p->t == ISAtom::TokType::SYMBOL) {
                     if (is_defined(p->vals)) {
                         p = symbols[p->vals];
+                    } else {
+                        break;
                     }
                 }
                 return p;
