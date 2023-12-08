@@ -313,6 +313,12 @@ class IndraScheme {
         bool first = true;
         ISAtom *pRes = new ISAtom();
 
+        if (listLen(pisa) < 3) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Not enough operands for <" + m_op + "> operation";
+            return pRes;
+        }
+
         while (p != nullptr) {
             pn = p;
             if (p->t == ISAtom::TokType::SYMBOL) {
@@ -452,13 +458,40 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *makeDefine(ISAtom *pisa) {
-        return pisa;
-        // symbols[name] = new ISAtom(*pisa);
+    int listLen(ISAtom *pisa) {
+        int len = 1;
+        ISAtom *p = pisa;
+        while (p->pNext) {
+            p = p->pNext;
+            ++len;
+        }
+        return len;
     }
 
-    bool
-    is_inbuilt(string funcName) {
+    bool is_defined(string name) {
+        if (symbols.find(name) == symbols.end()) return false;
+        return true;
+    }
+
+    ISAtom *makeDefine(ISAtom *pisa) {
+        ISAtom *pRes = new ISAtom();
+        if (listLen(pisa) != 3) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'define' requires 2 operands: name and value";
+            return pRes;
+        }
+        ISAtom *pN = pisa;
+        ISAtom *pV = pN->pNext;
+        if (pN->t != ISAtom::TokType::SYMBOL) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'define' requires symbol as first operand (name)";
+            return pRes;
+        }
+        symbols[pN->vals] = new ISAtom(*pV);
+        return pV;
+    }
+
+    bool is_inbuilt(string funcName) {
         if (inbuilts.find(funcName) == inbuilts.end()) return false;
         return true;
     }
@@ -473,6 +506,8 @@ class IndraScheme {
             if (is_inbuilt(pisa->vals)) {
                 // cout << "calling: " << pisa->vals << endl;
                 return inbuilts[pisa->vals](pisa->pNext);
+            } else if (is_defined(pisa->vals)) {
+                return symbols[pisa->vals];
             }
             cout << "Not implemented: " << pisa->vals << endl;
             pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
