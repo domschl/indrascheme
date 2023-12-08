@@ -51,7 +51,7 @@ class IndraScheme {
             string m_op{cm_op};
             inbuilts[m_op] = [this, m_op](ISAtom *pisa) -> ISAtom * { return math_2ops(pisa, m_op); };
         }
-        inbuilts["set"] = [&](ISAtom *pisa) -> ISAtom * { setAtom(pisa); };
+        inbuilts["define"] = [&](ISAtom *pisa) -> ISAtom * { return makeDefine(pisa); };
     }
 
     bool is_int(string token, bool nat = false) {
@@ -451,8 +451,9 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *setAtom(string name, ISAtom *pisa) {
-        symbols[name] = new ISAtom(*pisa);
+    ISAtom *makeDefine(ISAtom *pisa) {
+        return pisa;
+        // symbols[name] = new ISAtom(*pisa);
     }
 
     bool
