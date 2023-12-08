@@ -324,7 +324,13 @@ class IndraScheme {
             if (p->t == ISAtom::TokType::SYMBOL) {
                 if (symbols.find(p->vals) != symbols.end()) {
                     p = symbols[p->vals];
+                    // XXX recurs!
                 }
+            }
+            if (p->t == ISAtom::TokType::BRANCH) {
+                // cout << "sub-eval!" << endl;
+                p = eval(p);
+                p->pNext = pn->pNext;
             }
             if (p->t == ISAtom::TokType::INT) {
                 if (first) {
@@ -438,14 +444,13 @@ class IndraScheme {
                     }
                 }
                 p = pn->pNext;
-            } else if (p->t == ISAtom::TokType::BRANCH) {
-                // cout << "sub-eval!" << endl;
-                p = eval(p);
-                // sum += p->val;
-                // p = p->pNext;
-            } else {
+            } else if (p->t == ISAtom::TokType::NIL) {
                 // cout << "SKIP: " << p->t << " " << p->vals << endl;
                 p = pn->pNext;
+            } else {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Op: " + m_op + ", unhandled tokType: " + std::to_string(p->t);
+                return pRes;
             }
         }
         if (fl) {
