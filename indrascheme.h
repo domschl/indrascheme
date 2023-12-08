@@ -491,6 +491,9 @@ class IndraScheme {
             return pV;
             break;
         case ISAtom::TokType::BRANCH:
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'define' BRANCH not implemented.";
+            return pRes;
             break;
         default:
             pRes->t = ISAtom::TokType::ERROR;
