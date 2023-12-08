@@ -288,7 +288,7 @@ class IndraScheme {
             cout << "'";
             break;
         case ISAtom::TokType::SYMBOL:
-            cout << "(s)" << pisa->vals;
+            cout << "⧼𝔰⧽" << pisa->vals;
             break;
         default:
             cout << "<UNEXPECTED>";
@@ -485,13 +485,19 @@ class IndraScheme {
         }
         ISAtom *pN = pisa;
         ISAtom *pV = pN->pNext;
-        if (pN->t != ISAtom::TokType::SYMBOL) {
+        switch (pN->t) {
+        case ISAtom::TokType::SYMBOL:
+            symbols[pN->vals] = new ISAtom(*pV);
+            return pV;
+            break;
+        case ISAtom::TokType::BRANCH:
+            break;
+        default:
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'define' requires symbol as first operand (name)";
             return pRes;
+            break;
         }
-        symbols[pN->vals] = new ISAtom(*pV);
-        return pV;
     }
 
     bool is_inbuilt(string funcName) {
