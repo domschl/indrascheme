@@ -322,10 +322,8 @@ class IndraScheme {
         while (p != nullptr) {
             pn = p;
             if (p->t == ISAtom::TokType::SYMBOL) {
-                if (symbols.find(p->vals) != symbols.end()) {
-                    p = symbols[p->vals];
-                    // XXX recurs!
-                }
+                p = eval_symbol(p);
+                p->pNext = pn->pNext;
             }
             if (p->t == ISAtom::TokType::BRANCH) {
                 // cout << "sub-eval!" << endl;
@@ -501,6 +499,24 @@ class IndraScheme {
         return true;
     }
 
+    ISAtom *eval_symbol(ISAtom *pisa) {
+        ISAtom *p;
+        if (is_defined(pisa->vals)) {
+            p = symbols[pisa->vals];
+            while (p->t == ISAtom::TokType::SYMBOL) {
+                if (is_defined(p->vals)) {
+                    p = symbols[p->vals];
+                } else {
+                    break;
+                }
+            }
+            return p;
+        } else {
+            // can't eval
+            return pisa;
+        }
+    }
+
     ISAtom *eval(ISAtom *pisa) {
         ISAtom *pisan;
         switch (pisa->t) {
@@ -512,15 +528,7 @@ class IndraScheme {
                 // cout << "calling: " << pisa->vals << endl;
                 return inbuilts[pisa->vals](pisa->pNext);
             } else if (is_defined(pisa->vals)) {
-                ISAtom *p;
-                p = symbols[pisa->vals];
-                while (p->t == ISAtom::TokType::SYMBOL) {
-                    if (is_defined(p->vals)) {
-                        p = symbols[p->vals];
-                    } else {
-                        break;
-                    }
-                }
+                ISAtom *p = eval_symbol(pisa->vals);
                 return p;
             }
             cout << "Not implemented: " << pisa->vals << endl;
