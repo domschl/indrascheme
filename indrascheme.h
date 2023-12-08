@@ -462,6 +462,7 @@ class IndraScheme {
     }
 
     ISAtom *eval(ISAtom *pisa) {
+        ISAtom *pisan;
         switch (pisa->t) {
         case ISAtom::TokType::BRANCH:
             return eval(pisa->pChild);
@@ -472,7 +473,14 @@ class IndraScheme {
                 return inbuilts[pisa->vals](pisa->pNext);
             }
             cout << "Not implemented: " << pisa->vals << endl;
-            return nullptr;
+            pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
+            pisan->t = ISAtom::TokType::ERROR;
+            pisan->vals = "Undefined symbol: " + pisa->vals;
+            return pisan;
+            break;
+        case ISAtom::TokType::ERROR:
+            // cout << "Error: " << pisa->vals << endl;
+            return pisa;
             break;
         default:
             return pisa;
