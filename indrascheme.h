@@ -492,7 +492,7 @@ class IndraScheme {
             break;
         case ISAtom::TokType::BRANCH:
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'define' BRANCH not implemented.";
+            pRes->vals = "'define' BRANCH not implemented";
             return pRes;
             break;
         default:
@@ -509,7 +509,7 @@ class IndraScheme {
     }
 
     ISAtom *eval_symbol(ISAtom *pisa) {
-        ISAtom *p;
+        ISAtom *p, *pn;
         if (is_defined(pisa->vals)) {
             p = symbols[pisa->vals];
             while (p->t == ISAtom::TokType::SYMBOL) {
@@ -519,6 +519,7 @@ class IndraScheme {
                     break;
                 }
             }
+            p->pNext = pisa->pNext;
             return p;
         } else {
             // can't eval
