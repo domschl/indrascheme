@@ -500,7 +500,7 @@ class IndraScheme {
     }
 
     ISAtom *eval_symbol(ISAtom *pisa) {
-        ISAtom *p;
+        ISAtom *p, *pn;
         if (is_defined(pisa->vals)) {
             p = symbols[pisa->vals];
             while (p->t == ISAtom::TokType::SYMBOL) {
@@ -510,6 +510,7 @@ class IndraScheme {
                     break;
                 }
             }
+            p->pNext = pisa->pNext;
             return p;
         } else {
             // can't eval
@@ -528,7 +529,7 @@ class IndraScheme {
                 // cout << "calling: " << pisa->vals << endl;
                 return inbuilts[pisa->vals](pisa->pNext);
             } else if (is_defined(pisa->vals)) {
-                ISAtom *p = eval_symbol(pisa->vals);
+                ISAtom *p = eval_symbol(pisa);
                 return p;
             }
             cout << "Not implemented: " << pisa->vals << endl;
