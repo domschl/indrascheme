@@ -43,6 +43,7 @@ class ISAtom {
 class IndraScheme {
   public:
     map<string, std::function<ISAtom *(ISAtom *)>> inbuilts;
+    map<string, ISAtom *> symbols;
 
     IndraScheme() {
         for (auto cm_op : "+-*/%") {
@@ -50,6 +51,7 @@ class IndraScheme {
             string m_op{cm_op};
             inbuilts[m_op] = [this, m_op](ISAtom *pisa) -> ISAtom * { return math_2ops(pisa, m_op); };
         }
+        inbuilts["set"] = [&](ISAtom *pisa) -> ISAtom * { setAtom(pisa); };
     }
 
     bool is_int(string token, bool nat = false) {
@@ -305,12 +307,18 @@ class IndraScheme {
         // cout << m_op << endl;
         int res = 0;
         double fres = 0.0;
-        ISAtom *p = pisa;
+        ISAtom *p = pisa, *pn = nullptr;
         bool fl = false;
         bool first = true;
         ISAtom *pRes = new ISAtom();
 
         while (p != nullptr) {
+            pn = p;
+            if (p->t == ISAtom::TokType::SYMBOL) {
+                if (symbols.find(p->vals) != symbols.end()) {
+                    p = symbols[p->vals];
+                }
+            }
             if (p->t == ISAtom::TokType::INT) {
                 if (first) {
                     res = p->val;
@@ -360,7 +368,7 @@ class IndraScheme {
                         return pRes;
                     }
                 }
-                p = p->pNext;
+                p = pn->pNext;
             } else if (p->t == ISAtom::TokType::FLOAT) {
                 if (first) {
                     fres = p->valf;
@@ -422,7 +430,7 @@ class IndraScheme {
                         return pRes;
                     }
                 }
-                p = p->pNext;
+                p = pn->pNext;
             } else if (p->t == ISAtom::TokType::BRANCH) {
                 // cout << "sub-eval!" << endl;
                 p = eval(p);
@@ -430,7 +438,7 @@ class IndraScheme {
                 // p = p->pNext;
             } else {
                 // cout << "SKIP: " << p->t << " " << p->vals << endl;
-                p = p->pNext;
+                p = pn->pNext;
             }
         }
         if (fl) {
@@ -441,6 +449,10 @@ class IndraScheme {
             pRes->val = res;
         }
         return pRes;
+    }
+
+    ISAtom *setAtom(string name, ISAtom *pisa) {
+        symbols[name] = new ISAtom(*pisa);
     }
 
     bool
