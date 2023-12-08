@@ -20,6 +20,7 @@ class ISAtom {
                    INT,
                    FLOAT,
                    STRING,
+                   BOOLEAN,
                    SYMBOL,
                    QUOTE,
                    BRANCH };
@@ -44,6 +45,7 @@ class IndraScheme {
   public:
     map<string, std::function<ISAtom *(ISAtom *)>> inbuilts;
     map<string, ISAtom *> symbols;
+    vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "Branch"};
 
     IndraScheme() {
         for (auto cm_op : "+-*/%") {
@@ -51,6 +53,11 @@ class IndraScheme {
             string m_op{cm_op};
             inbuilts[m_op] = [this, m_op](ISAtom *pisa) -> ISAtom * { return math_2ops(pisa, m_op); };
         }
+        for (auto cmp_op : {"==", "!=", ">=", "<=", "<", ">", "and", "or"}) {
+            string m_op{cmp_op};
+            inbuilts[m_op] = [this, m_op](ISAtom *pisa) -> ISAtom * { return cmp_2ops(pisa, m_op); };
+        }
+
         inbuilts["define"] = [&](ISAtom *pisa) -> ISAtom * { return makeDefine(pisa); };
     }
 
@@ -98,6 +105,13 @@ class IndraScheme {
             return false;
     }
 
+    bool is_boolean(string token) {
+        if (token == "#t" or token == "#f")
+            return true;
+        else
+            return false;
+    }
+
     bool is_symbol(string token) {
         if (token.length() == 0) return false;
         string inv_first = "0123456790'\"\\";
@@ -130,6 +144,14 @@ class IndraScheme {
         if (is_string(symbol)) {
             pisa->t = ISAtom::TokType::STRING;
             pisa->vals = symbol.substr(1, symbol.length() - 2);
+            return pisa;
+        }
+        if (is_boolean(symbol)) {
+            pisa->t = ISAtom::TokType::BOOLEAN;
+            if (symbol == "#t")
+                pisa->val = 1;
+            else
+                pisa->val = 0;
             return pisa;
         }
         if (is_symbol(symbol)) {
@@ -284,6 +306,12 @@ class IndraScheme {
         case ISAtom::TokType::STRING:
             cout << "\"" << pisa->vals << "\"";
             break;
+        case ISAtom::TokType::BOOLEAN:
+            if (pisa->val == 0)
+                cout << "#f";
+            else
+                cout << "#t";
+            break;
         case ISAtom::TokType::QUOTE:
             cout << "'";
             break;
@@ -304,6 +332,152 @@ class IndraScheme {
         }
     }
 
+    ISAtom *_simplify(ISAtom *pisa) {
+        // ISAtom *p = new ISAtom(*pisa);  // XXX
+        // ISAtom *pn = new ISAtom(*p);    // XXX
+        ISAtom *p = pisa, *pn = p;
+        if (p->t == ISAtom::TokType::SYMBOL) {
+            p = eval_symbol(p);
+            p->pNext = pn->pNext;
+        }
+        if (p->t == ISAtom::TokType::BRANCH) {
+            // cout << "sub-eval!" << endl;
+            p = eval(p);
+            p->pNext = pn->pNext;
+        }
+        return p;
+    }
+
+    ISAtom *cmp_2ops(ISAtom *pisa, string m_op) {
+        // cout << m_op << endl;
+        ISAtom *p = pisa, *pn = nullptr;
+        ISAtom *pRes = new ISAtom();
+
+        if (listLen(pisa) != 3) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Not enough operands for <" + m_op + "> operation";
+            return pRes;
+        }
+        ISAtom *pl = pisa, *pr = pisa->pNext;
+        pl = _simplify(pl);
+        pr = _simplify(pr);
+        if (pl->t != pr->t) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Error: compare " + m_op + " requires two operands of same type, got: " + tokTypeNames[pl->t] + " and " + tokTypeNames[pr->t];
+            return pRes;
+        }
+        pRes->t = ISAtom::TokType::BOOLEAN;
+        pRes->val = 0;
+        bool a, b, r;
+        switch (pl->t) {
+        case ISAtom::TokType::INT:
+            if (m_op == "==")
+                r = (pl->val == pr->val);
+            else if (m_op == ">=")
+                r = (pl->val >= pr->val);
+            else if (m_op == "<=")
+                r = (pl->val <= pr->val);
+            else if (m_op == "!=")
+                r = (pl->val != pr->val);
+            else if (m_op == ">")
+                r = (pl->val > pr->val);
+            else if (m_op == "<")
+                r = (pl->val < pr->val);
+            else {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
+                return pRes;
+            }
+            if (r)
+                pRes->val = 1;
+            else
+                pRes->val = 0;
+            return pRes;
+            break;
+        case ISAtom::TokType::FLOAT:
+            if (m_op == "==")
+                r = (pl->valf == pr->valf);
+            else if (m_op == ">=")
+                r = (pl->valf >= pr->valf);
+            else if (m_op == "<=")
+                r = (pl->valf <= pr->valf);
+            else if (m_op == "!=")
+                r = (pl->valf != pr->valf);
+            else if (m_op == ">")
+                r = (pl->valf > pr->valf);
+            else if (m_op == "<")
+                r = (pl->valf < pr->valf);
+            else {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
+                return pRes;
+            }
+            if (r)
+                pRes->val = 1;
+            else
+                pRes->val = 0;
+            return pRes;
+            break;
+        case ISAtom::TokType::SYMBOL:
+        case ISAtom::TokType::STRING:
+            if (m_op == "==")
+                r = (pl->vals == pr->vals);
+            else if (m_op == ">=")
+                r = (pl->vals >= pr->vals);
+            else if (m_op == "<=")
+                r = (pl->vals <= pr->vals);
+            else if (m_op == "!=")
+                r = (pl->vals != pr->vals);
+            else if (m_op == ">")
+                r = (pl->vals > pr->vals);
+            else if (m_op == "<")
+                r = (pl->vals < pr->vals);
+            else {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
+                return pRes;
+            }
+            if (r)
+                pRes->val = 1;
+            else
+                pRes->val = 0;
+            return pRes;
+            break;
+        case ISAtom::TokType::BOOLEAN:
+            if (pl->val)
+                a = true;
+            else
+                a = false;
+            if (pr->val)
+                b = true;
+            else
+                b = false;
+            if (m_op == "==")
+                r = (a == b);
+            else if (m_op == "and")
+                r = (a && b);
+            else if (m_op == "or")
+                r = (a || b);
+            else if (m_op == "!=")
+                r = (a != b);
+            else {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
+                return pRes;
+            }
+            if (r)
+                pRes->val = 1;
+            else
+                pRes->val = 0;
+            return pRes;
+            break;
+        default:
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Can't compare " + m_op + " for type: " + tokTypeNames[pl->t];
+            return pRes;
+        }
+    }
+
     ISAtom *math_2ops(ISAtom *pisa, string m_op) {
         // cout << m_op << endl;
         int res = 0;
@@ -320,16 +494,9 @@ class IndraScheme {
         }
 
         while (p != nullptr) {
-            pn = p;
-            if (p->t == ISAtom::TokType::SYMBOL) {
-                p = eval_symbol(p);
-                p->pNext = pn->pNext;
-            }
-            if (p->t == ISAtom::TokType::BRANCH) {
-                // cout << "sub-eval!" << endl;
-                p = eval(p);
-                p->pNext = pn->pNext;
-            }
+            ISAtom *pn = p->pNext;
+            p = _simplify(p);
+            p->pNext = pn;
             if (p->t == ISAtom::TokType::INT) {
                 if (first) {
                     res = p->val;
@@ -379,7 +546,7 @@ class IndraScheme {
                         return pRes;
                     }
                 }
-                p = pn->pNext;
+                p = p->pNext;
             } else if (p->t == ISAtom::TokType::FLOAT) {
                 if (first) {
                     fres = p->valf;
@@ -441,13 +608,13 @@ class IndraScheme {
                         return pRes;
                     }
                 }
-                p = pn->pNext;
+                p = p->pNext;
             } else if (p->t == ISAtom::TokType::NIL) {
                 // cout << "SKIP: " << p->t << " " << p->vals << endl;
-                p = pn->pNext;
+                p = p->pNext;
             } else {
                 pRes->t = ISAtom::TokType::ERROR;
-                pRes->vals = "Op: " + m_op + ", unhandled tokType: " + std::to_string(p->t);
+                pRes->vals = "Op: " + m_op + ", unhandled tokType: " + tokTypeNames[p->t];
                 return pRes;
             }
         }
