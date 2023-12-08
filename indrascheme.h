@@ -491,6 +491,9 @@ class IndraScheme {
             return pV;
             break;
         case ISAtom::TokType::BRANCH:
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'define' BRANCH not implemented.";
+            return pRes;
             break;
         default:
             pRes->t = ISAtom::TokType::ERROR;
@@ -534,7 +537,7 @@ class IndraScheme {
                 // cout << "calling: " << pisa->vals << endl;
                 return inbuilts[pisa->vals](pisa->pNext);
             } else if (is_defined(pisa->vals)) {
-                ISAtom *p = eval_symbol(pisa->vals);
+                ISAtom *p = eval_symbol(pisa);
                 return p;
             }
             cout << "Not implemented: " << pisa->vals << endl;
