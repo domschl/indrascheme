@@ -165,6 +165,8 @@ void repl(std::string &prompt, std::string &prompt2) {
         ins.print(pisa);
         auto start = std::chrono::steady_clock::now();
         pisa = ins.eval(pisa);
+        cout << endl
+             << "⟫ ";
         ins.print(pisa);
 
         auto diff = std::chrono::steady_clock::now() - start;
@@ -178,7 +180,7 @@ void repl(std::string &prompt, std::string &prompt2) {
 }
 
 int main(int argc, char *argv[]) {
-    string prompt = "ℑ𝝀⧽ ", prompt2 = "  > ";
+    string prompt = "ℑ⧽ ", prompt2 = " > ";
     repl(prompt, prompt2);
     std::cout << "end-repl" << std::endl;
     return 0;
