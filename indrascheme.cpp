@@ -161,8 +161,8 @@ void repl(std::string &prompt, std::string &prompt2) {
         }
         ISAtom *pisa = ins.parse(cmd);
 
-        std::cout << std::endl;
-        ins.print(pisa);
+        // std::cout << std::endl;
+        // ins.print(pisa);
         auto start = std::chrono::steady_clock::now();
         pisa = ins.eval(pisa);
         cout << endl

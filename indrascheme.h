@@ -461,7 +461,7 @@ class IndraScheme {
                 return inbuilts[pisa->vals](pisa->pNext);
             }
             cout << "Not implemented: " << pisa->vals << endl;
-            pisan = new ISAtom();  // XXX That will loose mem!
+            pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
             pisan->t = ISAtom::TokType::ERROR;
             pisan->vals = "Undefined symbol: " + pisa->vals;
             return pisan;
