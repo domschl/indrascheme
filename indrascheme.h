@@ -57,8 +57,8 @@ class IndraScheme {
             string m_op{cmp_op};
             inbuilts[m_op] = [this, m_op](ISAtom *pisa) -> ISAtom * { return cmp_2ops(pisa, m_op); };
         }
-
         inbuilts["define"] = [&](ISAtom *pisa) -> ISAtom * { return makeDefine(pisa); };
+        inbuilts["if"] = [&](ISAtom *pisa) -> ISAtom * { return evalIf(pisa); };
     }
 
     bool is_int(string token, bool nat = false) {
@@ -668,6 +668,35 @@ class IndraScheme {
             return pRes;
             break;
         }
+    }
+
+    ISAtom *evalIf(ISAtom *pisa) {
+        ISAtom *pRes = new ISAtom();
+        if (listLen(pisa) != 3 && listLen(pisa) != 4) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'if' requires 2 or 3 operands: <condition> <true-expr> [<false-expr>]";
+            return pRes;
+        }
+        ISAtom *pC = pisa;
+        ISAtom *pT = pC->pNext;
+        ISAtom *pF = pT->pNext;
+
+        ISAtom *pR = _simplify(pisa);
+        if (pR->t != ISAtom::TokType::BOOLEAN) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'if' condition should result in boolean, but we got: " + tokTypeNames[pR->t];
+            return pRes;
+        }
+        if (pR->val) {
+            pRes = eval(pT);
+        } else {
+            if (pF) {
+                pRes = eval(pF);
+            } else {
+                pRes->t = ISAtom::TokType::NIL;
+            }
+        }
+        return pRes;
     }
 
     bool is_inbuilt(string funcName) {
