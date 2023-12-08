@@ -507,7 +507,14 @@ class IndraScheme {
                 // cout << "calling: " << pisa->vals << endl;
                 return inbuilts[pisa->vals](pisa->pNext);
             } else if (is_defined(pisa->vals)) {
-                return symbols[pisa->vals];
+                ISAtom *p;
+                p = symbols[pisa->vals];
+                while (p->t == ISAtom::TokType::SYMBOL) {
+                    if (is_defined(p->vals)) {
+                        p = symbols[p->vals];
+                    }
+                }
+                return p;
             }
             cout << "Not implemented: " << pisa->vals << endl;
             pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
