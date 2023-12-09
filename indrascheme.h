@@ -356,6 +356,7 @@ class IndraScheme {
             pCur = new ISAtom(*p);
             if (pPrev) {
                 pPrev->pNext = pCur;
+                // pRes = pCur;
             } else {
                 pRes = pCur;
             }
@@ -717,9 +718,9 @@ class IndraScheme {
                     pNa = pN->pChild;
                     funcs[pNa->vals] = pisa;
                     pRes->t = ISAtom::TokType::NIL;
-                    cout << "Defined function: " << pNa->vals << " as: ";
-                    print(pisa);
-                    cout << endl;
+                    // cout << "Defined function: " << pNa->vals << " as: ";
+                    // print(pisa);
+                    // cout << endl;
                 }
             }
             return pRes;
