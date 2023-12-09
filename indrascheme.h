@@ -364,6 +364,7 @@ class IndraScheme {
             }
             pPrev = pCur;
             p = p->pNext;
+            // pRes = p;
         }
         return pRes;
     }
@@ -744,7 +745,7 @@ class IndraScheme {
         }
         ISAtom *pN = pisa;
         ISAtom *pV = pN->pNext;
-        ISAtom *pNa;
+        ISAtom *pNa, *pR;
         int n = 0;
         bool err = false;
         switch (pN->t) {
@@ -752,7 +753,16 @@ class IndraScheme {
             local_symbols[pN->vals] = new ISAtom(*_simplify(pV, local_symbols));
             pN = local_symbols[pN->vals];
             if (pV->pNext) {
-                return eval(pV->pNext, local_symbols);
+                pN = pV->pNext;
+                while (pN && pN->t != ISAtom::TokType::NIL) {
+                    pNa = pN->pNext;
+                    pR = eval(pN, local_symbols);
+                    pN = pR;
+                    pN->pNext = pNa;
+                    pN = pN->pNext;
+                }
+                return pR;
+                // return eval(pV->pNext, local_symbols);
             } else {
                 return pN;
             }
@@ -818,7 +828,7 @@ class IndraScheme {
         ISAtom *pCalc = pL;
         while (pCR->val) {
             pL = pCalc;
-            while (pL) {
+            while (pL && pL->t != ISAtom::TokType::NIL) {
                 pN = pL->pNext;
                 pRes = eval(pL, local_symbols);
                 pL = pN;
