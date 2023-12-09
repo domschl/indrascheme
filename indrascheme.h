@@ -326,13 +326,14 @@ class IndraScheme {
             cout << "<UNEXPECTED>";
             break;
         }
+        ISAtom *pN = pisa->pNext;
         if (pisa->pChild != nullptr) {
             print(pisa->pChild);
             cout << ")";
         }
-        if (pisa->pNext != nullptr) {
+        if (pN != nullptr) {
             cout << " ";
-            print(pisa->pNext);
+            print(pN);
         }
     }
 
@@ -344,6 +345,7 @@ class IndraScheme {
         pPrev = nullptr;
         while (p) {
             pn = p->pNext;
+            if (p->t == ISAtom::TokType::NIL) break;
             if (p->t == ISAtom::TokType::SYMBOL) {
                 p = eval_symbol(p, local_symbols);
                 p->pNext = pn;
