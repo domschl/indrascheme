@@ -59,6 +59,8 @@ class IndraScheme {
         }
         inbuilts["define"] = [&](ISAtom *pisa) -> ISAtom * { return makeDefine(pisa); };
         inbuilts["if"] = [&](ISAtom *pisa) -> ISAtom * { return evalIf(pisa); };
+        inbuilts["while"] = [&](ISAtom *pisa) -> ISAtom * { return evalWhile(pisa); };
+        inbuilts["print"] = [&](ISAtom *pisa) -> ISAtom * { return evalPrint(pisa); };
     }
 
     bool is_int(string token, bool nat = false) {
@@ -335,15 +337,15 @@ class IndraScheme {
     ISAtom *_simplify(ISAtom *pisa) {
         // ISAtom *p = new ISAtom(*pisa);  // XXX
         // ISAtom *pn = new ISAtom(*p);    // XXX
-        ISAtom *p = pisa, *pn = p;
+        ISAtom *p = pisa, *pn = p->pNext;
         if (p->t == ISAtom::TokType::SYMBOL) {
             p = eval_symbol(p);
-            p->pNext = pn->pNext;
+            p->pNext = pn;
         }
         if (p->t == ISAtom::TokType::BRANCH) {
             // cout << "sub-eval!" << endl;
             p = eval(p);
-            p->pNext = pn->pNext;
+            p->pNext = pn;
         }
         return p;
     }
@@ -654,8 +656,8 @@ class IndraScheme {
         ISAtom *pV = pN->pNext;
         switch (pN->t) {
         case ISAtom::TokType::SYMBOL:
-            symbols[pN->vals] = new ISAtom(*pV);
-            return pV;
+            symbols[pN->vals] = new ISAtom(*_simplify(pV));
+            return symbols[pN->vals];
             break;
         case ISAtom::TokType::BRANCH:
             pRes->t = ISAtom::TokType::ERROR;
@@ -677,11 +679,13 @@ class IndraScheme {
             pRes->vals = "'if' requires 2 or 3 operands: <condition> <true-expr> [<false-expr>]";
             return pRes;
         }
-        ISAtom *pC = pisa;
-        ISAtom *pT = pC->pNext;
+        ISAtom *pC = new ISAtom(*pisa);
+        pC->pNext = nullptr;
+        ISAtom *pT = new ISAtom(*pisa->pNext);
         ISAtom *pF = pT->pNext;
+        pT->pNext = nullptr;
 
-        ISAtom *pR = _simplify(pisa);
+        ISAtom *pR = _simplify(pC);
         if (pR->t != ISAtom::TokType::BOOLEAN) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'if' condition should result in boolean, but we got: " + tokTypeNames[pR->t];
@@ -697,6 +701,56 @@ class IndraScheme {
             }
         }
         return pRes;
+    }
+
+    ISAtom *evalWhile(ISAtom *pisa) {
+        ISAtom *pRes = new ISAtom();
+        if (listLen(pisa) < 3) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'while' requires at least 2 operands: <condition> <expr> [<expr>]...";
+            return pRes;
+        }
+        ISAtom *pC = new ISAtom(*pisa);
+        pC->pNext = nullptr;
+        ISAtom *pL = pisa->pNext;
+        ISAtom *pN;
+
+        ISAtom *pCR = _simplify(pC);
+        if (pCR->t != ISAtom::TokType::BOOLEAN) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'while' condition should result in boolean, but we got: " + tokTypeNames[pCR->t];
+            return pRes;
+        }
+        int n = 20;
+        ISAtom *pCalc = pL;
+        while (pCR->val) {
+            pL = pCalc;
+            while (pL) {
+                pN = pL->pNext;
+                pRes = eval(pL);
+                pL->pNext = pN;
+                pL = pL->pNext;
+            }
+            pCR = _simplify(pC);
+            if (pCR->t != ISAtom::TokType::BOOLEAN) {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "'while' condition should result in boolean, but we got: " + tokTypeNames[pCR->t];
+                return pRes;
+            }
+        }
+        return pRes;
+    }
+
+    ISAtom *evalPrint(ISAtom *pisa) {
+        ISAtom *pRes = new ISAtom();
+        if (listLen(pisa) < 1) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'print' requires at least 1 operand: <expr> [<expr>]...";
+            return pRes;
+        }
+        ISAtom *pP = pisa;
+        print(_simplify(pP));
+        return pisa;
     }
 
     bool is_inbuilt(string funcName) {
