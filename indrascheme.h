@@ -59,6 +59,7 @@ class IndraScheme {
             inbuilts[m_op] = [this, m_op](ISAtom *pisa, map<string, ISAtom *> local_symbols) -> ISAtom * { return cmp_2ops(pisa, local_symbols, m_op); };
         }
         inbuilts["define"] = [&](ISAtom *pisa, map<string, ISAtom *> local_symbols) -> ISAtom * { return makeDefine(pisa, local_symbols); };
+        inbuilts["let"] = [&](ISAtom *pisa, map<string, ISAtom *> local_symbols) -> ISAtom * { return makeLocalDefine(pisa, local_symbols); };
         inbuilts["if"] = [&](ISAtom *pisa, map<string, ISAtom *> local_symbols) -> ISAtom * { return evalIf(pisa, local_symbols); };
         inbuilts["while"] = [&](ISAtom *pisa, map<string, ISAtom *> local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
         inbuilts["print"] = [&](ISAtom *pisa, map<string, ISAtom *> local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
@@ -703,6 +704,31 @@ class IndraScheme {
                 }
             }
             return pRes;
+            break;
+        default:
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'define' requires symbol as first operand (name)";
+            return pRes;
+            break;
+        }
+    }
+
+    ISAtom *makeLocalDefine(ISAtom *pisa, map<string, ISAtom *> local_symbols) {
+        ISAtom *pRes = new ISAtom();
+        if (listLen(pisa) != 3) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'let' requires 2 operands: name and value";
+            return pRes;
+        }
+        ISAtom *pN = pisa;
+        ISAtom *pV = pN->pNext;
+        ISAtom *pNa;
+        int n = 0;
+        bool err = false;
+        switch (pN->t) {
+        case ISAtom::TokType::SYMBOL:
+            local_symbols[pN->vals] = new ISAtom(*_simplify(pV, local_symbols));
+            return local_symbols[pN->vals];
             break;
         default:
             pRes->t = ISAtom::TokType::ERROR;
