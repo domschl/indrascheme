@@ -757,9 +757,10 @@ class IndraScheme {
                 while (pN && pN->t != ISAtom::TokType::NIL) {
                     pNa = pN->pNext;
                     pR = eval(pN, local_symbols);
-                    pN = pR;
-                    pN->pNext = pNa;
-                    pN = pN->pNext;
+                    pN = pNa;
+                    // pN = pR;
+                    // pN->pNext = pNa;
+                    // pN = pN->pNext;
                 }
                 return pR;
                 // return eval(pV->pNext, local_symbols);
