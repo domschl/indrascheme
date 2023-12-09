@@ -165,7 +165,8 @@ void repl(std::string &prompt, std::string &prompt2) {
         // ins.print(pisa);
         auto start = std::chrono::steady_clock::now();
         std::cout << endl;
-        pisa = ins.eval(pisa, {});
+        map<string, ISAtom *> ls;
+        pisa = ins.eval(pisa, ls);
         cout << endl
              << "⟫ ";
         ins.print(pisa);
