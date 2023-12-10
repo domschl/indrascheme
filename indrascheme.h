@@ -367,20 +367,11 @@ class IndraScheme {
         pRes = pisa;
         pPrev = nullptr;
 
-        cout << "Simplify: ";
-        print(pisa);
-        cout << endl;
-
         while (p) {
             pn = p->pNext;
             if (p->t == ISAtom::TokType::NIL) break;
             if (p->t == ISAtom::TokType::SYMBOL) {
                 p->pNext = nullptr;
-
-                cout << "Sub-Simplify: ";
-                print(p);
-                cout << endl;
-
                 p = eval_symbol(p, local_symbols);
                 p->pNext = pn;
             }
@@ -776,9 +767,6 @@ class IndraScheme {
                     pNa = pN->pChild;
                     funcs[pNa->vals] = pisa;
                     pRes->t = ISAtom::TokType::NIL;
-                    // cout << "Defined function: " << pNa->vals << " as: ";
-                    // print(pisa);
-                    // cout << endl;
                 }
             }
             return pRes;
@@ -844,55 +832,6 @@ class IndraScheme {
         } else {
             return copyList(pisa);
         }
-        /*
-        // ----
-        ISAtom *pN = pisa;
-        ISAtom *pV = pN->pNext;
-        ISAtom *pNa, *pR;
-        int n = 0;
-        bool err = false;
-
-        switch (pN->t) {
-        case ISAtom::TokType::SYMBOL:
-
-            cout << "localDev: " << pN->vals;
-            if (local_symbols.find(pN->vals) != local_symbols.end()) {
-                cout << ", curVal: ";
-                print(local_symbols[pN->vals]);
-            }
-            local_symbols[pN->vals] = copyList(_simplify(pV, local_symbols));
-            local_symbols[pN->vals]->pNext = nullptr;  // XXX the whole syntax is ambiguous, let defines should be in ((a b)) brackets.
-            cout << ", newVal: ";
-            print(local_symbols[pN->vals]);
-            cout << endl;
-
-            pN = local_symbols[pN->vals];
-            if (pV->pNext) {
-                ISAtom *pNo = pV->pNext;
-                pN = copyList(pNo);
-                pR = pN;
-                while (pN && pN->t != ISAtom::TokType::NIL) {
-                    pNa = pN->pNext;
-                    ISAtom *pNc = copyList(pN);
-                    pR = eval(pNc, local_symbols);
-                    pN = pNa;
-                    // pN = pR;
-                    // pN->pNext = pNa;
-                    // pN = pN->pNext;
-                }
-                return copyList(pR);
-                // return eval(pV->pNext, local_symbols);
-            } else {
-                return copyList(pN);
-            }
-            break;
-        default:
-            pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'define' requires symbol as first operand (name)";
-            return pRes;
-            break;
-        }
-        */
     }
 
     ISAtom *evalIf(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
@@ -1078,7 +1017,6 @@ class IndraScheme {
             break;
         case ISAtom::TokType::SYMBOL:
             if (is_inbuilt(pisa->vals)) {
-                cout << "calling: " << pisa->vals << endl;
                 return inbuilts[pisa->vals](pisa->pNext, local_symbols);
             } else if (is_defined_symbol(pisa->vals, local_symbols)) {
                 ISAtom *p = eval_symbol(pisa, local_symbols);

@@ -1,4 +1,6 @@
 (define (isqrt n0) (let ((x0 (/ n0 2)) (x1 (/ (+ x0 (/ n0 x0)) 2))) (while (< x1 x0) (let ((x0 x1) (x1 (/ (+ x0 (/ n0 x0)) 2))))) x0) )
-(define (isprime n) (if (< n 2) #f (if (== n 2) #t (if (== (% n 2) 0) #f (let ((s (isqrt n)) (d 3) (b #t)) (while (and (<= d s) b) (print n d s) (if (== (% n d) 0) (let ((b #f))) (let ((d (+ d 2)))))) b) )) ))
+(define (isprime n) (if (< n 2) #f (if (== n 2) #t (if (== (% n 2) 0) #f (let ((s (isqrt n)) (d 3) (b #t)) (while (and (<= d s) b) (if (== (% n d) 0) (let ((b #f))) (let ((d (+ d 2)))))) b) )) ))
+(define (primes m) (let ((m0 2) (cnt 0)) (while (<= m0 m) (if (isprime m0) (let ((cnt (+ cnt 1))) (print m0))) (let ((m0 (+ m0 1))))) cnt ))
+
 
 
