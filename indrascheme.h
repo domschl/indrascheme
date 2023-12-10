@@ -359,9 +359,10 @@ class IndraScheme {
         }
     }
 
-    ISAtom *_simplify(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *_simplify(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
         // ISAtom *p = new ISAtom(*pisa);  // XXX
         // ISAtom *pn = new ISAtom(*p);    // XXX
+        ISAtom *pisa = copyList(pisa_o);
         ISAtom *p = pisa, *pn, *pRes, *pPrev, *pCur;
         pRes = pisa;
         pPrev = nullptr;
@@ -392,8 +393,9 @@ class IndraScheme {
     }
 
     ISAtom *
-    cmp_2ops(ISAtom *pisa, map<string, ISAtom *> &local_symbols, string m_op) {
+    cmp_2ops(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols, string m_op) {
         // cout << m_op << endl;
+        ISAtom *pisa = copyList(pisa_o);
         ISAtom *p = pisa, *pn = nullptr;
         ISAtom *pRes = new ISAtom();
 
@@ -522,8 +524,9 @@ class IndraScheme {
         }
     }
 
-    ISAtom *math_2ops(ISAtom *pisa, map<string, ISAtom *> &local_symbols, string m_op) {
+    ISAtom *math_2ops(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols, string m_op) {
         // cout << m_op << endl;
+        ISAtom *pisa = copyList(pisa_o);
         int res = 0;
         double fres = 0.0;
         ISAtom *p = pisa, *pn = nullptr;
@@ -682,6 +685,21 @@ class IndraScheme {
         return len;
     }
 
+    ISAtom *copyList(ISAtom *pisa) {
+        if (pisa == nullptr) return nullptr;
+        ISAtom *c = new ISAtom(*pisa);
+        c->pChild = copyList(pisa->pChild);
+        c->pNext = copyList(pisa->pNext);
+        return c;
+    }
+
+    void deleteList(ISAtom *pisa) {
+        if (pisa == nullptr) return;
+        deleteList(pisa->pChild);
+        deleteList(pisa->pNext);
+        delete pisa;
+    }
+
     bool is_defined(string name, map<string, ISAtom *> &local_symbols) {
         if (symbols.find(name) == symbols.end() && funcs.find(name) == funcs.end() && local_symbols.find(name) == local_symbols.end()) return false;
         return true;
@@ -697,7 +715,8 @@ class IndraScheme {
         return true;
     }
 
-    ISAtom *makeDefine(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *makeDefine(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = new ISAtom();
         if (listLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -716,7 +735,7 @@ class IndraScheme {
                 pRes->vals = "Symbol-'define' requires exactly 2 operands: name and value";
                 return pRes;
             }
-            symbols[pN->vals] = new ISAtom(*_simplify(pV, local_symbols));
+            symbols[pN->vals] = copyList(_simplify(pV, local_symbols));
             return symbols[pN->vals];
             break;
         case ISAtom::TokType::BRANCH:
@@ -758,7 +777,8 @@ class IndraScheme {
         }
     }
 
-    ISAtom *makeLocalDefine(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *makeLocalDefine(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = new ISAtom();
         if (listLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -772,22 +792,24 @@ class IndraScheme {
         bool err = false;
         switch (pN->t) {
         case ISAtom::TokType::SYMBOL:
-            local_symbols[pN->vals] = new ISAtom(*_simplify(pV, local_symbols));
+            local_symbols[pN->vals] = copyList(_simplify(pV, local_symbols));
             pN = local_symbols[pN->vals];
             if (pV->pNext) {
-                pN = pV->pNext;
+                ISAtom *pNo = pV->pNext;
+                pN = copyList(pNo);
                 while (pN && pN->t != ISAtom::TokType::NIL) {
                     pNa = pN->pNext;
-                    pR = eval(pN, local_symbols);
+                    ISAtom *pNc = copyList(pN);
+                    pR = eval(pNc, local_symbols);
                     pN = pNa;
                     // pN = pR;
                     // pN->pNext = pNa;
                     // pN = pN->pNext;
                 }
-                return pR;
+                return copyList(pR);
                 // return eval(pV->pNext, local_symbols);
             } else {
-                return pN;
+                return copyList(pN);
             }
             break;
         default:
@@ -807,8 +829,8 @@ class IndraScheme {
         }
         ISAtom *pC = new ISAtom(*pisa);
         pC->pNext = nullptr;
-        ISAtom *pT = new ISAtom(*pisa->pNext);
-        ISAtom *pF = pT->pNext;
+        ISAtom *pT = copyList(pisa->pNext);
+        ISAtom *pF = copyList(pT->pNext);
         pT->pNext = nullptr;
 
         ISAtom *pR = _simplify(pC, local_symbols);
@@ -850,10 +872,11 @@ class IndraScheme {
         int n = 20;
         ISAtom *pCalc = pL;
         while (pCR->val) {
-            pL = pCalc;
+            pL = copyList(pCalc);
             while (pL && pL->t != ISAtom::TokType::NIL) {
                 pN = pL->pNext;
-                pRes = eval(pL, local_symbols);
+                ISAtom *pLc = copyList(pL);
+                pRes = eval(pLc, local_symbols);
                 pL = pN;
             }
             pCR = _simplify(pC, local_symbols);
@@ -866,7 +889,8 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *evalPrint(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *evalPrint(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = new ISAtom();
         if (listLen(pisa) < 1) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -883,8 +907,9 @@ class IndraScheme {
         return true;
     }
 
-    ISAtom *eval_symbol(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *eval_symbol(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
         ISAtom *p, *pn;
+        ISAtom *pisa = copyList(pisa_o);
         if (is_defined_symbol(pisa->vals, local_symbols)) {
             if (local_symbols.find(pisa->vals) != local_symbols.end())
                 p = local_symbols[pisa->vals];
@@ -901,15 +926,16 @@ class IndraScheme {
                 }
             }
             p->pNext = pisa->pNext;
-            return p;
+            return copyList(p);
         } else {
             // can't eval
             return pisa;
         }
     }
 
-    ISAtom *eval_func(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *eval_func(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
         ISAtom *p, *pn, *pDef;
+        ISAtom *pisa = copyList(pisa_o);
         map<string, ISAtom *> function_arguments = local_symbols;
         if (is_defined_func(pisa->vals)) {
             pDef = funcs[pisa->vals];
@@ -958,7 +984,8 @@ class IndraScheme {
         }
     }
 
-    ISAtom *eval(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *eval(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        ISAtom *pisa = copyList(pisa_o);
         ISAtom *pisan, *pN, *pRet;
         switch (pisa->t) {
         case ISAtom::TokType::BRANCH:
