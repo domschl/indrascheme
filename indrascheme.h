@@ -797,6 +797,7 @@ class IndraScheme {
             if (pV->pNext) {
                 ISAtom *pNo = pV->pNext;
                 pN = copyList(pNo);
+                pR = pN;
                 while (pN && pN->t != ISAtom::TokType::NIL) {
                     pNa = pN->pNext;
                     ISAtom *pNc = copyList(pN);
