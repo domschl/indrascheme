@@ -366,10 +366,21 @@ class IndraScheme {
         ISAtom *p = pisa, *pn, *pRes, *pPrev, *pCur;
         pRes = pisa;
         pPrev = nullptr;
+
+        cout << "Simplify: ";
+        print(pisa);
+        cout << endl;
+
         while (p) {
             pn = p->pNext;
             if (p->t == ISAtom::TokType::NIL) break;
             if (p->t == ISAtom::TokType::SYMBOL) {
+                p->pNext = nullptr;
+
+                cout << "Sub-Simplify: ";
+                print(p);
+                cout << endl;
+
                 p = eval_symbol(p, local_symbols);
                 p->pNext = pn;
             }
@@ -662,6 +673,7 @@ class IndraScheme {
             } else {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Op: " + m_op + ", unhandled tokType: " + tokTypeNames[p->t];
+                if (p->t == ISAtom::TokType::ERROR) pRes->vals += ": " + p->vals;
                 return pRes;
             }
         }
@@ -675,7 +687,7 @@ class IndraScheme {
         return pRes;
     }
 
-    int listLen(ISAtom *pisa) {
+    int listLen(ISAtom *pisa) {  // XXX NIL is counted!
         int len = 1;
         ISAtom *p = pisa;
         while (p->pNext) {
@@ -686,6 +698,8 @@ class IndraScheme {
     }
 
     ISAtom *copyList(ISAtom *pisa) {
+        // return pisa;
+
         if (pisa == nullptr) return nullptr;
         ISAtom *c = new ISAtom(*pisa);
         c->pChild = copyList(pisa->pChild);
@@ -780,19 +794,78 @@ class IndraScheme {
     ISAtom *makeLocalDefine(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = new ISAtom();
-        if (listLen(pisa) < 3) {
+        if (listLen(pisa) < 2) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'let' requires at least 2 operands: name and value";
+            pRes->vals = "'let' requires at least 1 operand";
             return pRes;
         }
+
+        if (pisa->t != ISAtom::TokType::BRANCH) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'let' no primary list: required are a list of key values pairs: ((k v ), ..) [ ()]";
+            return pRes;
+        }
+        ISAtom *pDef = pisa->pChild;
+        while (pDef && pDef->t != ISAtom::TokType::NIL) {
+            if (pDef->t != ISAtom::TokType::BRANCH) {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "'let' list entries must be list: required are a list of key values pairs: ((k v ), ..) [ ()]";
+                return pRes;
+            }
+            if (listLen(pDef->pChild) != 3) {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "'let' list entries must be list of exactly two entries: required are a list of key values pairs: ((k v ), ..) [ ()]";
+                return pRes;
+            }
+            ISAtom *pName = pDef->pChild;
+            if (pName->t != ISAtom::TokType::SYMBOL) {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "'let' list entries must be list of exactly two entries, and first must be a symbol: required are a list of key values pairs: ((k v ), ..) [ ()]";
+                return pRes;
+            }
+            ISAtom *pVal = pName->pNext;
+            local_symbols[pName->vals] = copyList(_simplify(pVal, local_symbols));
+            pDef = pDef->pNext;
+        }
+
+        if (pisa->pNext) {
+            ISAtom *pExpr = pisa->pNext;
+            ISAtom *pNa, *pR;
+            pR = pisa;
+            while (pExpr && pExpr->t != ISAtom::TokType::NIL) {
+                pNa = pExpr->pNext;
+                ISAtom *pNc = copyList(pExpr);
+                pNc->pNext = nullptr;
+                pR = eval(pNc, local_symbols);
+                pExpr = pNa;
+            }
+            return copyList(pR);
+            // return eval(pV->pNext, local_symbols);
+        } else {
+            return copyList(pisa);
+        }
+        /*
+        // ----
         ISAtom *pN = pisa;
         ISAtom *pV = pN->pNext;
         ISAtom *pNa, *pR;
         int n = 0;
         bool err = false;
+
         switch (pN->t) {
         case ISAtom::TokType::SYMBOL:
+
+            cout << "localDev: " << pN->vals;
+            if (local_symbols.find(pN->vals) != local_symbols.end()) {
+                cout << ", curVal: ";
+                print(local_symbols[pN->vals]);
+            }
             local_symbols[pN->vals] = copyList(_simplify(pV, local_symbols));
+            local_symbols[pN->vals]->pNext = nullptr;  // XXX the whole syntax is ambiguous, let defines should be in ((a b)) brackets.
+            cout << ", newVal: ";
+            print(local_symbols[pN->vals]);
+            cout << endl;
+
             pN = local_symbols[pN->vals];
             if (pV->pNext) {
                 ISAtom *pNo = pV->pNext;
@@ -819,6 +892,7 @@ class IndraScheme {
             return pRes;
             break;
         }
+        */
     }
 
     ISAtom *evalIf(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
@@ -918,10 +992,11 @@ class IndraScheme {
                 p = symbols[pisa->vals];
             while (p->t == ISAtom::TokType::SYMBOL) {
                 if (is_defined_symbol(p->vals, local_symbols)) {
-                    if (local_symbols.find(pisa->vals) != local_symbols.end())
-                        p = local_symbols[pisa->vals];
-                    else
-                        p = symbols[pisa->vals];
+                    if (local_symbols.find(p->vals) != local_symbols.end()) {
+                        p = local_symbols[p->vals];
+                    } else {
+                        p = symbols[p->vals];
+                    }
                 } else {
                     break;
                 }
@@ -945,6 +1020,7 @@ class IndraScheme {
             vector<string> localNames;
             int n = 0;
             bool err = false;
+            string func_name;
             ISAtom *pRes = new ISAtom();
             while (pNa && !err) {
                 if (pNa->t == ISAtom::TokType::NIL) break;
@@ -953,6 +1029,8 @@ class IndraScheme {
                     if (n > 1) {
                         localNames.push_back(pNa->vals);
                         // cout << "localVar" << n-1 << ", " << pNa->vals << endl;
+                    } else {
+                        func_name = pNa->vals;
                     }
                     pNa = pNa->pNext;
                 } else {
@@ -966,7 +1044,7 @@ class IndraScheme {
             if (listLen(pisa) - 2 != n - 1) {  // Pisa: fun-name and nil: 2, n: fun-name: 1
                 err = true;
                 pRes->t = ISAtom::TokType::ERROR;
-                pRes->vals = "Function " + localNames[0] + " requires " + std::to_string(n - 1) + " arguments, " + std::to_string(listLen(pisa) - 2) + " given";
+                pRes->vals = "Function " + func_name + " requires " + std::to_string(n - 1) + " arguments, " + std::to_string(listLen(pisa) - 2) + " given";
                 return pRes;
             }
             ISAtom *pCurVar;
@@ -1000,7 +1078,7 @@ class IndraScheme {
             break;
         case ISAtom::TokType::SYMBOL:
             if (is_inbuilt(pisa->vals)) {
-                // cout << "calling: " << pisa->vals << endl;
+                cout << "calling: " << pisa->vals << endl;
                 return inbuilts[pisa->vals](pisa->pNext, local_symbols);
             } else if (is_defined_symbol(pisa->vals, local_symbols)) {
                 ISAtom *p = eval_symbol(pisa, local_symbols);
