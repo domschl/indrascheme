@@ -220,6 +220,7 @@ class IndraScheme {
                     }
                     state = COMMENT;
                     break;
+                    /*  ?? What was that?
                 case '\'':
                     if (curSymbol.length() == 0) {
                         curSymbol += c;
@@ -228,6 +229,7 @@ class IndraScheme {
                         curSymbol += c;  // This should probably generate an illegal state...
                     }
                     break;
+                    */
                 case ' ':
                 case '\n':
                 case '\r':
@@ -271,14 +273,34 @@ class IndraScheme {
                         pNode = _insert_curSymbol(pNode, &curSymbol);
                         state = START;
                     } else {
-                        curSymbol += c;
                         is_esc = false;
+                        curSymbol += c;
                     }
                     break;
                 default:
-                    curSymbol += c;
-                    is_esc = false;
-                    break;
+                    if (is_esc) {
+                        switch (c) {
+                        case 'n':
+                            curSymbol += '\n';
+                            break;
+                        case 'r':
+                            curSymbol += '\r';
+                            break;
+                        case 't':
+                            curSymbol += '\t';
+                            break;
+                        case '\\':
+                            curSymbol += '\\';
+                            break;
+                        default:
+                            curSymbol += "\\";
+                            curSymbol += c;
+                        }
+                        is_esc = false;
+                    } else {
+                        curSymbol += c;
+                        break;
+                    }
                 }
                 break;
             default:
