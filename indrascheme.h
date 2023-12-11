@@ -47,6 +47,7 @@ class IndraScheme {
     map<string, ISAtom *> symbols;
     map<string, ISAtom *> funcs;
     vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "Branch"};
+    vector<ISAtom *> gctr;
 
     IndraScheme() {
         for (auto cm_op : "+-*/%") {
@@ -63,6 +64,19 @@ class IndraScheme {
         inbuilts["if"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalIf(pisa, local_symbols); };
         inbuilts["while"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
         inbuilts["print"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
+    }
+
+    ISAtom *gca(ISAtom *src = nullptr) {
+        ISAtom *nisa;
+        if (src)
+            nisa = new ISAtom(*src);
+        else
+            nisa = new ISAtom();
+        gctr.push_back(nisa);
+        return nisa;
+    }
+
+    void gc(ISAtom *current) {
     }
 
     bool is_int(string token, bool nat = false) {
