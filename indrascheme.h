@@ -64,6 +64,7 @@ class IndraScheme {
         inbuilts["if"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalIf(pisa, local_symbols); };
         inbuilts["while"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
         inbuilts["print"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
+        inbuilts["load"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalLoad(pisa, local_symbols); };
     }
 
     ISAtom *gca(ISAtom *src = nullptr) {
@@ -373,41 +374,6 @@ class IndraScheme {
         }
     }
 
-    ISAtom *_simplify(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
-        // ISAtom *p = new ISAtom(*pisa);  // XXX
-        // ISAtom *pn = new ISAtom(*p);    // XXX
-        ISAtom *pisa = copyList(pisa_o);
-        ISAtom *p = pisa, *pn, *pRes, *pPrev, *pCur;
-        pRes = pisa;
-        pPrev = nullptr;
-
-        while (p) {
-            pn = p->pNext;
-            if (p->t == ISAtom::TokType::NIL) break;
-            if (p->t == ISAtom::TokType::SYMBOL) {
-                p->pNext = nullptr;
-                p = eval_symbol(p, local_symbols);
-                p->pNext = pn;
-            }
-            if (p->t == ISAtom::TokType::BRANCH) {
-                // cout << "sub-eval!" << endl;
-                p = eval(p, local_symbols);
-                p->pNext = pn;
-            }
-            pCur = new ISAtom(*p);
-            if (pPrev) {
-                pPrev->pNext = pCur;
-                // pRes = pCur;
-            } else {
-                pRes = pCur;
-            }
-            pPrev = pCur;
-            p = p->pNext;
-            // pRes = p;
-        }
-        return pRes;
-    }
-
     ISAtom *
     cmp_2ops(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols, string m_op) {
         // cout << m_op << endl;
@@ -421,8 +387,8 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *pl = pisa, *pr = pisa->pNext;
-        pl = _simplify(pl, local_symbols);
-        pr = _simplify(pr, local_symbols);
+        pl = chainEval(pl, local_symbols);
+        pr = chainEval(pr, local_symbols);
         if (pl->t != pr->t) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Error: compare " + m_op + " requires two operands of same type, got: " + tokTypeNames[pl->t] + " and " + tokTypeNames[pr->t];
@@ -558,7 +524,7 @@ class IndraScheme {
 
         while (p != nullptr) {
             ISAtom *pn = p->pNext;
-            p = _simplify(p, local_symbols);
+            p = chainEval(p, local_symbols);
             p->pNext = pn;
             if (p->t == ISAtom::TokType::INT) {
                 if (first) {
@@ -754,7 +720,7 @@ class IndraScheme {
                 pRes->vals = "Symbol-'define' requires exactly 2 operands: name and value";
                 return pRes;
             }
-            symbols[pN->vals] = copyList(_simplify(pV, local_symbols));
+            symbols[pN->vals] = copyList(chainEval(pV, local_symbols));
             return symbols[pN->vals];
             break;
         case ISAtom::TokType::BRANCH:
@@ -826,7 +792,7 @@ class IndraScheme {
                 return pRes;
             }
             ISAtom *pVal = pName->pNext;
-            local_symbols[pName->vals] = copyList(_simplify(pVal, local_symbols));
+            local_symbols[pName->vals] = copyList(chainEval(pVal, local_symbols));
             pDef = pDef->pNext;
         }
 
@@ -861,7 +827,7 @@ class IndraScheme {
         ISAtom *pF = copyList(pT->pNext);
         pT->pNext = nullptr;
 
-        ISAtom *pR = _simplify(pC, local_symbols);
+        ISAtom *pR = chainEval(pC, local_symbols);
         if (pR->t != ISAtom::TokType::BOOLEAN) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'if' condition should result in boolean, but we got: " + tokTypeNames[pR->t];
@@ -891,7 +857,7 @@ class IndraScheme {
         ISAtom *pL = pisa->pNext;
         ISAtom *pN;
 
-        ISAtom *pCR = _simplify(pC, local_symbols);
+        ISAtom *pCR = chainEval(pC, local_symbols);
         if (pCR->t != ISAtom::TokType::BOOLEAN) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'while' condition should result in boolean, but we got: " + tokTypeNames[pCR->t];
@@ -907,7 +873,7 @@ class IndraScheme {
                 pRes = eval(pLc, local_symbols);
                 pL = pN;
             }
-            pCR = _simplify(pC, local_symbols);
+            pCR = chainEval(pC, local_symbols);
             if (pCR->t != ISAtom::TokType::BOOLEAN) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'while' condition should result in boolean, but we got: " + tokTypeNames[pCR->t];
@@ -926,7 +892,42 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *pP = pisa;
-        print(_simplify(pP, local_symbols));
+        ISAtom *pResS = chainEval(pP, local_symbols);
+        print(pResS);
+        return pResS->pNext;
+    }
+
+    ISAtom *evalLoad(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        ISAtom *pisa = copyList(pisa_o);
+        ISAtom *pRes = new ISAtom();
+        if (listLen(pisa) != 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'load' requires one string operand, a filename, got: " + std::to_string(listLen(pisa));
+            return pRes;
+        }
+        ISAtom *pP = pisa;
+        if (pP->t != ISAtom::TokType::STRING) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'load' requires a string operand, a filename";
+            return pRes;
+        }
+
+        char buf[129];
+        int nb;
+        string cmd = "";
+        FILE *fp = fopen(pP->vals.c_str(), "r");
+        if (fp) {
+            while (!feof(fp)) {
+                nb = fread(buf, 1, 128, fp);
+                buf[nb] = 0;
+                cmd += buf;
+            }
+        }
+        // replaceAll(cmd, "\\n", "\n");
+        ISAtom *pisa_p = parse(cmd);
+        // map<string, ISAtom *> ls;
+        pisa = chainEval(pisa_p, local_symbols);
+
         return pisa;
     }
 
@@ -962,9 +963,9 @@ class IndraScheme {
         }
     }
 
-    ISAtom *eval_func(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *eval_func(ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
         ISAtom *p, *pn, *pDef;
-        ISAtom *pisa = copyList(pisa_o);
+        // ISAtom *pisa = copyList(pisa_o);
         map<string, ISAtom *> function_arguments = local_symbols;
         if (is_defined_func(pisa->vals)) {
             pDef = funcs[pisa->vals];
@@ -1018,41 +1019,94 @@ class IndraScheme {
 
     ISAtom *eval(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
-        ISAtom *pisan, *pN, *pRet;
-        switch (pisa->t) {
+        ISAtom *pisan, *pN, *pRet, *pReti;
+        ISAtom *pCur = pisa, *pRetCur = nullptr;
+
+        pN = pCur->pNext;
+        switch (pCur->t) {
         case ISAtom::TokType::BRANCH:
-            pN = pisa->pNext;
-            pRet = eval(pisa->pChild, local_symbols);
-            pRet->pNext = pN;
-            // if (pRet->pNext)
-            //     return eval(pRet->pNext, local_symbols);
-            // else
-            return pRet;
+            if (!pRetCur) {
+                pRet = eval(pCur->pChild, local_symbols);
+                pRetCur = pRet;
+            } else {
+                pReti = eval(pCur->pChild, local_symbols);
+                pRetCur->pNext = pReti;
+                pRetCur = pReti;
+            }
+            pCur = pN;
             break;
         case ISAtom::TokType::SYMBOL:
-            if (is_inbuilt(pisa->vals)) {
-                return inbuilts[pisa->vals](pisa->pNext, local_symbols);
-            } else if (is_defined_symbol(pisa->vals, local_symbols)) {
-                ISAtom *p = eval_symbol(pisa, local_symbols);
-                return p;
-            } else if (is_defined_func(pisa->vals)) {
-                ISAtom *p = eval_func(pisa, local_symbols);
-                return p;
+            // if (pRetCur) break;
+            if (is_inbuilt(pCur->vals)) {
+                // cout << "inbuilt: " << pCur->vals << endl;
+                pReti = inbuilts[pCur->vals](pCur->pNext, local_symbols);
+            } else if (is_defined_symbol(pCur->vals, local_symbols)) {
+                // cout << "symbol: " << pCur->vals << endl;
+                pReti = eval_symbol(pCur, local_symbols);
+            } else if (is_defined_func(pCur->vals)) {
+                // cout << "func: " << pCur->vals << endl;
+                pReti = eval_func(pCur, local_symbols);
+            } else {
+                cout << "Not implemented: " << pisa->vals << endl;
+                pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
+                pisan->t = ISAtom::TokType::ERROR;
+                pisan->vals = "Undefined symbol: " + pisa->vals;
+                return pisan;
             }
-            cout << "Not implemented: " << pisa->vals << endl;
-            pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
-            pisan->t = ISAtom::TokType::ERROR;
-            pisan->vals = "Undefined symbol: " + pisa->vals;
-            return pisan;
+            if (!pRetCur) {
+                pRet = pReti;
+                pRetCur = pRet;
+            } else {
+                pRetCur->pNext = pReti;
+                pRetCur = pReti;
+            }
+            return pReti;
+            // pCur = nullptr;  // pN;
             break;
         case ISAtom::TokType::ERROR:
             // cout << "Error: " << pisa->vals << endl;
-            return pisa;
+            return pCur;
             break;
         default:
-            return pisa;
+            return pCur;
             break;
         }
+        return pRet;
+    }
+
+    ISAtom *chainEval(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        // ISAtom *p = new ISAtom(*pisa);  // XXX
+        // ISAtom *pn = new ISAtom(*p);    // XXX
+        ISAtom *pisa = copyList(pisa_o);
+        ISAtom *p = pisa, *pn, *pRes, *pPrev, *pCur;
+        pRes = pisa;
+        pPrev = nullptr;
+
+        while (p) {
+            pn = p->pNext;
+            if (p->t == ISAtom::TokType::NIL) break;
+            if (p->t == ISAtom::TokType::SYMBOL) {
+                p->pNext = nullptr;
+                p = eval_symbol(p, local_symbols);
+                p->pNext = pn;
+            }
+            if (p->t == ISAtom::TokType::BRANCH) {
+                // cout << "sub-eval!" << endl;
+                p = eval(p, local_symbols);
+                p->pNext = pn;
+            }
+            pCur = new ISAtom(*p);
+            if (pPrev) {
+                pPrev->pNext = pCur;
+                // pRes = pCur;
+            } else {
+                pRes = pCur;
+            }
+            pPrev = pCur;
+            p = p->pNext;
+            // pRes = p;
+        }
+        return pRes;
     }
 };
 
