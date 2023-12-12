@@ -951,20 +951,21 @@ class IndraScheme {
             pRes->vals = "'cons' requires two args";
             return pRes;
         }
-        if (pisa->pNext->t == ISAtom::TokType::QUOTE) pisa->pNext = pisa->pNext->pNext;
-        if (pisa->pNext->t != ISAtom::TokType::BRANCH) {
+        ISAtom *c1 = pisa;
+        ISAtom *c2 = eval(pisa->pNext, local_symbols);
+        if (c2->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'cons' 2nd arg needs to be list or quoted list";
+            pRes->vals = "'cons' 2nd arg needs to eval to list (e.g. quoted list)";
             return pRes;
         }
         pRes->t = ISAtom::TokType::QUOTE;
         pRes->pNext = new ISAtom();
         pRes = pRes->pNext;
         pRes->t = ISAtom::TokType::BRANCH;
-        pRes->pChild = new ISAtom(*pisa);
+        pRes->pChild = new ISAtom(*c1);
         pRes = pRes->pChild;
         pRes->pNext = nullptr;
-        pisa = pisa->pNext->pChild;
+        pisa = c2->pChild;
         while (pisa) {
             pRes->pNext = new ISAtom(*pisa);
             pRes = pRes->pNext;
@@ -1104,6 +1105,7 @@ class IndraScheme {
         switch (pCur->t) {
         case ISAtom::TokType::QUOTE:
             pCur = pN;
+            return pCur;
             break;
         case ISAtom::TokType::BRANCH:
             if (!pRetCur) {
@@ -1169,6 +1171,9 @@ class IndraScheme {
             pn = p->pNext;
             p->pNext = new ISAtom();  // nullptr;
             switch (p->t) {
+            case ISAtom::TokType::QUOTE:
+                pCEi = pn;
+                break;
             case ISAtom::TokType::NIL:
                 pCEi = new ISAtom();
                 break;
