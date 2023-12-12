@@ -331,10 +331,10 @@ class IndraScheme {
         return pStart;
     }
 
-    void print(ISAtom *pisa) {
+    void print(ISAtom *pisa, bool decor = true) {
         switch (pisa->t) {
         case ISAtom::TokType::NIL:
-            cout << "⦉";
+            if (decor) cout << "⦉";
             break;
         case ISAtom::TokType::ERROR:
             cout << "<Error: " + pisa->vals + ">";
@@ -349,7 +349,10 @@ class IndraScheme {
             cout << pisa->valf;
             break;
         case ISAtom::TokType::STRING:
-            cout << "\"" << pisa->vals << "\"";
+            if (decor)
+                cout << "\"" << pisa->vals << "\"";
+            else
+                cout << pisa->vals;
             break;
         case ISAtom::TokType::BOOLEAN:
             if (pisa->val == 0)
@@ -361,7 +364,8 @@ class IndraScheme {
             cout << "'";
             break;
         case ISAtom::TokType::SYMBOL:
-            cout << "⧼𝔰⧽" << pisa->vals;
+            if (decor) cout << "⧼𝔰⧽";
+            cout << pisa->vals;
             break;
         default:
             cout << "<UNEXPECTED>";
@@ -369,12 +373,12 @@ class IndraScheme {
         }
         ISAtom *pN = pisa->pNext;
         if (pisa->pChild != nullptr) {
-            print(pisa->pChild);
+            print(pisa->pChild, decor);
             cout << ")";
         }
         if (pN != nullptr) {
             if (pisa->t != ISAtom::TokType::QUOTE) cout << " ";
-            print(pN);
+            print(pN, decor);
         }
     }
 
@@ -897,7 +901,7 @@ class IndraScheme {
         }
         ISAtom *pP = pisa;
         ISAtom *pResS = chainEval(pP, local_symbols);
-        print(pResS);
+        print(pResS, false);
         return pResS;
     }
 
