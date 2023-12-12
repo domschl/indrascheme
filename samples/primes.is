@@ -3,5 +3,3 @@
 (define (primes m) (let ((m0 2) (cnt 0)) (while (<= m0 m) (if (isprime m0) (let ((cnt (+ cnt 1))) (print m0))) (let ((m0 (+ m0 1))))) cnt ))
 
 
-
-(let ((n 0)) (while (< n 5) (let ((n (+ n 1)))) (print n) (print "|")))
