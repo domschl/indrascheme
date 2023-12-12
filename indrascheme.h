@@ -963,7 +963,8 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *c1 = pisa;
-        ISAtom *c2 = eval(pisa->pNext, local_symbols);
+        ISAtom *c2 = eval(pisa->pNext, local_symbols, true);
+        if (c2->t == ISAtom::TokType::QUOTE) c2 = eval(c2, local_symbols, true);  // XXX Is this consistent?!
         if (c2->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'cons' 2nd arg needs to eval to list (e.g. quoted list)";
@@ -1165,6 +1166,7 @@ class IndraScheme {
                 pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
                 pisan->t = ISAtom::TokType::ERROR;
                 pisan->vals = "Undefined expression: " + pisa->str();
+                return pisan;
             } else {
                 return pCur;
             }
@@ -1182,24 +1184,37 @@ class IndraScheme {
         //  pPrev = nullptr;
         ISAtom *pCE = nullptr, *pCEi;
         ISAtom *pCERes = new ISAtom();
+        bool is_quote = false;
 
         while (p && p->t != ISAtom::TokType::NIL) {
             pn = p->pNext;
             p->pNext = new ISAtom();  // nullptr;
             switch (p->t) {
             case ISAtom::TokType::QUOTE:
-                pCEi = pn;
+                pCEi = nullptr;
+                is_quote = true;
                 break;
             case ISAtom::TokType::NIL:
+                is_quote = false;
                 pCEi = new ISAtom();
                 break;
             case ISAtom::TokType::SYMBOL:
-                pCEi = eval_symbol(copyList(p), local_symbols);
+                if (is_quote) {
+                    pCEi = copyList(p);
+                    is_quote = false;
+                } else
+                    pCEi = eval_symbol(copyList(p), local_symbols);
+
                 break;
             case ISAtom::TokType::BRANCH:
-                pCEi = eval(copyList(p), local_symbols, true);
+                if (is_quote) {
+                    pCEi = copyList(p);
+                    is_quote = false;
+                } else
+                    pCEi = eval(copyList(p), local_symbols, true);
                 break;
             default:
+                is_quote = false;
                 pCEi = new ISAtom(*p);
                 break;
             }
