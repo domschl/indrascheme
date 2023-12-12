@@ -1167,7 +1167,7 @@ class IndraScheme {
 
         while (p && p->t != ISAtom::TokType::NIL) {
             pn = p->pNext;
-            p->pNext = nullptr;
+            p->pNext = new ISAtom();  // nullptr;
             switch (p->t) {
             case ISAtom::TokType::NIL:
                 pCEi = new ISAtom();
