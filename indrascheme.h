@@ -38,6 +38,54 @@ class ISAtom {
         valf = 0.0;
         vals = "";
     }
+    string str(bool decor = false) {
+        string out;
+        switch (t) {
+        case ISAtom::TokType::NIL:
+            if (decor)
+                out = "⦉";
+            else
+                out = "";
+            break;
+        case ISAtom::TokType::ERROR:
+            out = "<Error: " + vals + ">";
+            break;
+        case ISAtom::TokType::BRANCH:
+            out = "(";
+            break;
+        case ISAtom::TokType::INT:
+            out = std::to_string(val);
+            break;
+        case ISAtom::TokType::FLOAT:
+            out = std::to_string(valf);
+            break;
+        case ISAtom::TokType::STRING:
+            if (decor)
+                out = "\"" + vals + "\"";
+            else
+                out = vals;
+            break;
+        case ISAtom::TokType::BOOLEAN:
+            if (val == 0)
+                out = "#f";
+            else
+                out = "#t";
+            break;
+        case ISAtom::TokType::QUOTE:
+            out = "'";
+            break;
+        case ISAtom::TokType::SYMBOL:
+            if (decor)
+                out = "⧼𝔰⧽" + vals;
+            else
+                out = vals;
+            break;
+        default:
+            out = "<UNEXPECTED>";
+            break;
+        }
+        return out;
+    }
 };
 
 class IndraScheme {
@@ -332,46 +380,9 @@ class IndraScheme {
     }
 
     void print(ISAtom *pisa, bool decor = true) {
-        switch (pisa->t) {
-        case ISAtom::TokType::NIL:
-            if (decor) cout << "⦉";
-            break;
-        case ISAtom::TokType::ERROR:
-            cout << "<Error: " + pisa->vals + ">";
-            break;
-        case ISAtom::TokType::BRANCH:
-            cout << "(";
-            break;
-        case ISAtom::TokType::INT:
-            cout << pisa->val;
-            break;
-        case ISAtom::TokType::FLOAT:
-            cout << pisa->valf;
-            break;
-        case ISAtom::TokType::STRING:
-            if (decor)
-                cout << "\"" << pisa->vals << "\"";
-            else
-                cout << pisa->vals;
-            break;
-        case ISAtom::TokType::BOOLEAN:
-            if (pisa->val == 0)
-                cout << "#f";
-            else
-                cout << "#t";
-            break;
-        case ISAtom::TokType::QUOTE:
-            cout << "'";
-            break;
-        case ISAtom::TokType::SYMBOL:
-            if (decor) cout << "⧼𝔰⧽";
-            cout << pisa->vals;
-            break;
-        default:
-            cout << "<UNEXPECTED>";
-            break;
-        }
+        string out = pisa->str(decor);
         ISAtom *pN = pisa->pNext;
+        cout << out;
         if (pisa->pChild != nullptr) {
             print(pisa->pChild, decor);
             cout << ")";
@@ -1096,7 +1107,7 @@ class IndraScheme {
         }
     }
 
-    ISAtom *eval(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *eval(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols, bool func_only = false) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pisan, *pN, *pRet, *pReti;
         ISAtom *pCur = pisa, *pRetCur = nullptr;
@@ -1109,10 +1120,10 @@ class IndraScheme {
             break;
         case ISAtom::TokType::BRANCH:
             if (!pRetCur) {
-                pRet = eval(pCur->pChild, local_symbols);
+                pRet = eval(pCur->pChild, local_symbols, true);
                 pRetCur = pRet;
             } else {
-                pReti = eval(pCur->pChild, local_symbols);
+                pReti = eval(pCur->pChild, local_symbols, func_only);
                 pRetCur->pNext = pReti;
                 pRetCur = pReti;
             }
@@ -1123,17 +1134,16 @@ class IndraScheme {
             if (is_inbuilt(pCur->vals)) {
                 // cout << "inbuilt: " << pCur->vals << endl;
                 pReti = inbuilts[pCur->vals](pCur->pNext, local_symbols);
-            } else if (is_defined_symbol(pCur->vals, local_symbols)) {
-                // cout << "symbol: " << pCur->vals << endl;
-                pReti = eval_symbol(pCur, local_symbols);
             } else if (is_defined_func(pCur->vals)) {
                 // cout << "func: " << pCur->vals << endl;
                 pReti = eval_func(pCur, local_symbols);
+            } else if (!func_only && is_defined_symbol(pCur->vals, local_symbols)) {
+                // cout << "symbol: " << pCur->vals << endl;
+                pReti = eval_symbol(pCur, local_symbols);
             } else {
-                cout << "Not implemented: " << pisa->vals << endl;
                 pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
                 pisan->t = ISAtom::TokType::ERROR;
-                pisan->vals = "Undefined symbol: " + pisa->vals;
+                pisan->vals = "Undefined function: " + pisa->vals;
                 return pisan;
             }
             if (!pRetCur) {
@@ -1151,7 +1161,13 @@ class IndraScheme {
             return pCur;
             break;
         default:
-            return pCur;
+            if (func_only) {
+                pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
+                pisan->t = ISAtom::TokType::ERROR;
+                pisan->vals = "Undefined expression: " + pisa->str();
+            } else {
+                return pCur;
+            }
             break;
         }
         return pRet;
@@ -1181,7 +1197,7 @@ class IndraScheme {
                 pCEi = eval_symbol(copyList(p), local_symbols);
                 break;
             case ISAtom::TokType::BRANCH:
-                pCEi = eval(copyList(p), local_symbols);
+                pCEi = eval(copyList(p), local_symbols, true);
                 break;
             default:
                 pCEi = new ISAtom(*p);
