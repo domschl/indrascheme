@@ -681,8 +681,8 @@ class IndraScheme {
         int len = 1;
         ISAtom *p = pisa;
         while (p->pNext) {
+            if (p->t != ISAtom::TokType::QUOTE) ++len;
             p = p->pNext;
-            ++len;
         }
         return len;
     }
@@ -949,7 +949,7 @@ class IndraScheme {
             pRes->pNext = nullptr;
             pisa = pisa->pNext;
         }
-        print(pStart);
+        // print(pStart);
         return pStart;
     }
 
@@ -984,7 +984,7 @@ class IndraScheme {
             pRes->pNext = nullptr;
             pisa = pisa->pNext;
         }
-        print(pStart);
+        // print(pStart);
         return pStart;
     }
 
@@ -1124,7 +1124,7 @@ class IndraScheme {
                 pRet = eval(pCur->pChild, local_symbols, true);
                 pRetCur = pRet;
             } else {
-                pReti = eval(pCur->pChild, local_symbols, func_only);
+                pReti = eval(pCur->pChild, local_symbols, true);
                 pRetCur->pNext = pReti;
                 pRetCur = pReti;
             }
