@@ -1022,13 +1022,23 @@ class IndraScheme {
         ISAtom *pRes = new ISAtom();
         if (getListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'car' requires one arg";
+            pRes->vals = "'car' requires one list arg";
             return pRes;
         }
         ISAtom *pC = pisa;
         if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
+            else {
+                pC = eval(pC, local_symbols);
+                if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
+            }
         if (pC->t == ISAtom::TokType::BRANCH) pC = pC->pChild;
-        pRes = new ISAtom(*pC);
+        else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'car' requires one list arg";
+            return pRes;
+                
+            }
+                                pRes = new ISAtom(*pC);
         pRes->pNext = new ISAtom();
         return pRes;
     }
