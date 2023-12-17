@@ -1264,16 +1264,17 @@ class IndraScheme {
                 if (is_quote) {
                     pCEi = copyList(p);
                     is_quote = false;
-                } else
+                } else {
                     pCEi = eval_symbol(copyList(p), local_symbols);
-
+                }
                 break;
             case ISAtom::TokType::BRANCH:
                 if (is_quote) {
                     pCEi = copyList(p);
                     is_quote = false;
-                } else
+                } else {
                     pCEi = eval(copyList(p), local_symbols, true);
+                }
                 break;
             default:
                 is_quote = false;
@@ -1289,6 +1290,9 @@ class IndraScheme {
                     pCE->pNext = new ISAtom(*pCEi);
                     pCE = pCE->pNext;
                     pCE->pNext = new ISAtom();
+                }
+                if (pCEi->pChild) {
+                    pCE->pChild = copyList(pCEi->pChild);
                 }
             }
         }
