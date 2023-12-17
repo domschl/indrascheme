@@ -114,9 +114,10 @@ class IndraScheme {
         inbuilts["load"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalLoad(pisa, local_symbols); };
         inbuilts["list"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listList(pisa, local_symbols); };
         inbuilts["cons"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listCons(pisa, local_symbols); };
-        // inbuilts["car"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listCar(pisa, local_symbols); };
-        // inbuilts["cdr"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listCdr(pisa, local_symbols); };
+        inbuilts["car"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listCar(pisa, local_symbols); };
+        inbuilts["cdr"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listCdr(pisa, local_symbols); };
         inbuilts["len"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listLen(pisa, local_symbols); };
+        inbuilts["eval"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
     }
 
     ISAtom *gca(ISAtom *src = nullptr) {
@@ -739,7 +740,11 @@ class IndraScheme {
                 pRes->vals = "Symbol-'define' requires exactly 2 operands: name and value";
                 return pRes;
             }
-            symbols[pN->vals] = copyList(chainEval(pV, local_symbols));
+            if (pV->t == ISAtom::TokType::QUOTE) {
+                symbols[pN->vals] = copyList(pV);
+            } else {
+                symbols[pN->vals] = copyList(chainEval(pV, local_symbols));
+            }
             return symbols[pN->vals];
             break;
         case ISAtom::TokType::BRANCH:
@@ -811,7 +816,11 @@ class IndraScheme {
                 return pRes;
             }
             ISAtom *pVal = pName->pNext;
-            local_symbols[pName->vals] = copyList(chainEval(pVal, local_symbols));
+            if (pVal->t == ISAtom::TokType::QUOTE) {
+                local_symbols[pName->vals] = copyList(pVal);
+            } else {
+                local_symbols[pName->vals] = copyList(chainEval(pVal, local_symbols));
+            }
             pDef = pDef->pNext;
         }
 
@@ -916,6 +925,22 @@ class IndraScheme {
         return pResS;
     }
 
+    ISAtom *evalEval(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        ISAtom *pisa = copyList(pisa_o);
+        ISAtom *pRes = new ISAtom();
+        if (getListLen(pisa) < 1) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'eval' requires at least 1 operand: <expr> [<expr>]...";
+            return pRes;
+        }
+        ISAtom *pP = pisa;
+        if (pisa->t == ISAtom::TokType::QUOTE) {
+            pP = pisa->pNext;
+        }
+        ISAtom *pResS = chainEval(pP, local_symbols);
+        return pResS;
+    }
+
     ISAtom *listLen(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = new ISAtom();
@@ -964,7 +989,7 @@ class IndraScheme {
         }
         ISAtom *c1 = pisa;
         ISAtom *c2 = eval(pisa->pNext, local_symbols, true);
-        if (c2->t == ISAtom::TokType::QUOTE) c2 = eval(c2, local_symbols, true);  // XXX Is this consistent?!
+        if (c2->t == ISAtom::TokType::QUOTE) c2 = c2->pNext;  // eval(c2->pNext, local_symbols, true);  // XXX Is this consistent?!
         if (c2->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'cons' 2nd arg needs to eval to list (e.g. quoted list)";
@@ -986,6 +1011,43 @@ class IndraScheme {
         }
         // print(pStart);
         return pStart;
+    }
+
+    ISAtom *listCar(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        ISAtom *pisa = copyList(pisa_o);
+        ISAtom *pRes = new ISAtom();
+        if (getListLen(pisa) != 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'car' requires one arg";
+            return pRes;
+        }
+        ISAtom *pC = pisa;
+        if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
+        if (pC->t == ISAtom::TokType::BRANCH) pC = pC->pChild;
+        pRes = new ISAtom(*pC);
+        pRes->pNext = new ISAtom();
+        return pRes;
+    }
+
+    ISAtom *listCdr(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+        ISAtom *pisa = copyList(pisa_o);
+        ISAtom *pRes = new ISAtom();
+        if (getListLen(pisa) != 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'cdr' requires one list arg";
+            return pRes;
+        }
+        pRes = copyList(pisa);
+        ISAtom *pC = pRes;
+        if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
+        if (pC->t == ISAtom::TokType::BRANCH) {
+            pC->pChild = pC->pChild->pNext;
+        } else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'cdr' requires list as second arg";
+            return pRes;
+        }
+        return pRes;
     }
 
     ISAtom *evalLoad(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
@@ -1116,7 +1178,7 @@ class IndraScheme {
         pN = pCur->pNext;
         switch (pCur->t) {
         case ISAtom::TokType::QUOTE:
-            pCur = pN;
+            // pCur = pN;
             return pCur;
             break;
         case ISAtom::TokType::BRANCH:
@@ -1191,7 +1253,7 @@ class IndraScheme {
             p->pNext = new ISAtom();  // nullptr;
             switch (p->t) {
             case ISAtom::TokType::QUOTE:
-                pCEi = nullptr;
+                pCEi = copyList(p);  // nullptr;
                 is_quote = true;
                 break;
             case ISAtom::TokType::NIL:
