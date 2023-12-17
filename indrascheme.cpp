@@ -153,7 +153,6 @@ void repl(std::string &prompt, std::string &prompt2) {
             bool bq = false;
             inp = charReader(prompt, &bq);
             cmd += inp + "\n";
-            // printf("\nInp: %s", cmd.c_str());
             if (bq || cmd == "(quit)\n") {
                 return;
             }
@@ -169,7 +168,8 @@ void repl(std::string &prompt, std::string &prompt2) {
         pisa = ins.chainEval(pisa, ls);
         cout << endl
              << "⟫ ";
-        ins.print(pisa);
+        map<string, ISAtom *> lsyms;
+        ins.print(pisa, lsyms);
 
         auto diff = std::chrono::steady_clock::now() - start;
         std::cout << endl;

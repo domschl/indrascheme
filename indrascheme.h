@@ -76,7 +76,7 @@ class ISAtom {
             break;
         case ISAtom::TokType::SYMBOL:
             if (decor)
-                out = "⧼𝔰⧽" + vals;
+                out = "ⓢ " + vals;
             else
                 out = vals;
             break;
@@ -380,17 +380,21 @@ class IndraScheme {
         return pStart;
     }
 
-    void print(ISAtom *pisa, bool decor = true) {
-        string out = pisa->str(decor);
+    void print(ISAtom *pisa, map<string, ISAtom *> &local_symbols, bool decor = true) {
+        string out = pisa->str(false);
         ISAtom *pN = pisa->pNext;
+        if (decor) {
+            if (is_inbuilt(pisa->vals) || is_defined_func(pisa->vals)) out = "ⓕ " + out;
+            if (is_defined_symbol(pisa->vals, local_symbols)) out = "ⓢ " + out;
+        }
         cout << out;
         if (pisa->pChild != nullptr) {
-            print(pisa->pChild, decor);
+            print(pisa->pChild, local_symbols, decor);
             cout << ")";
         }
         if (pN != nullptr) {
             if (pisa->t != ISAtom::TokType::QUOTE) cout << " ";
-            print(pN, decor);
+            print(pN, local_symbols, decor);
         }
     }
 
@@ -921,7 +925,7 @@ class IndraScheme {
         }
         ISAtom *pP = pisa;
         ISAtom *pResS = chainEval(pP, local_symbols);
-        print(pResS, false);
+        print(pResS, local_symbols, false);
         return pResS;
     }
 
@@ -934,10 +938,12 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *pP = pisa;
-        if (pisa->t == ISAtom::TokType::QUOTE) {
-            pP = pisa->pNext;
-        }
+
         ISAtom *pResS = chainEval(pP, local_symbols);
+        if (pResS->t == ISAtom::TokType::QUOTE) {
+            pResS = chainEval(copyList(pResS->pNext), local_symbols);
+        }
+
         return pResS;
     }
 
@@ -974,7 +980,6 @@ class IndraScheme {
             pRes->pNext = nullptr;
             pisa = pisa->pNext;
         }
-        // print(pStart);
         return pStart;
     }
 
@@ -1009,7 +1014,6 @@ class IndraScheme {
             pRes->pNext = nullptr;
             pisa = pisa->pNext;
         }
-        // print(pStart);
         return pStart;
     }
 
@@ -1108,7 +1112,6 @@ class IndraScheme {
                     break;
                 }
             }
-            p->pNext = pisa->pNext;
             return copyList(p);
         } else {
             // can't eval
@@ -1193,15 +1196,11 @@ class IndraScheme {
             pCur = pN;
             break;
         case ISAtom::TokType::SYMBOL:
-            // if (pRetCur) break;
             if (is_inbuilt(pCur->vals)) {
-                // cout << "inbuilt: " << pCur->vals << endl;
                 pReti = inbuilts[pCur->vals](pCur->pNext, local_symbols);
             } else if (is_defined_func(pCur->vals)) {
-                // cout << "func: " << pCur->vals << endl;
                 pReti = eval_func(pCur, local_symbols);
             } else if (!func_only && is_defined_symbol(pCur->vals, local_symbols)) {
-                // cout << "symbol: " << pCur->vals << endl;
                 pReti = eval_symbol(pCur, local_symbols);
             } else {
                 pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
