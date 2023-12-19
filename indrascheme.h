@@ -1235,60 +1235,39 @@ class IndraScheme {
 
     ISAtom *eval(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols, bool func_only = false) {
         ISAtom *pisa = copyList(pisa_o);
-        ISAtom *pisan, *pN, *pRet, *pReti;
-        ISAtom *pCur = pisa, *pRetCur = nullptr;
+        ISAtom *pN, *pRet;  //, *pReti;
 
-        pN = pCur->pNext;
-        switch (pCur->t) {
+        pN = pisa->pNext;
+        switch (pisa->t) {
         case ISAtom::TokType::QUOTE:
             pRet = pN;
             break;
         case ISAtom::TokType::BRANCH:
-            if (!pRetCur) {
-                pRet = eval(pCur->pChild, local_symbols, true);
-                pRetCur = pRet;
-            } else {
-                pReti = eval(pCur->pChild, local_symbols, true);
-                pRetCur->pNext = pReti;
-                pRetCur = pReti;
-            }
-            pCur = pN;
+            pRet = eval(pisa->pChild, local_symbols, true);
             break;
         case ISAtom::TokType::SYMBOL:
-            if (is_inbuilt(pCur->vals)) {
-                pReti = inbuilts[pCur->vals](pCur->pNext, local_symbols);
-            } else if (is_defined_func(pCur->vals)) {
-                pReti = eval_func(pCur, local_symbols);
-            } else if (!func_only && is_defined_symbol(pCur->vals, local_symbols)) {
-                pReti = eval_symbol(pCur, local_symbols);
+            if (is_inbuilt(pisa->vals)) {
+                pRet = inbuilts[pisa->vals](pisa->pNext, local_symbols);
+            } else if (is_defined_func(pisa->vals)) {
+                pRet = eval_func(pisa, local_symbols);
+            } else if (!func_only && is_defined_symbol(pisa->vals, local_symbols)) {
+                pRet = eval_symbol(pisa, local_symbols);
             } else {
-                pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
-                pisan->t = ISAtom::TokType::ERROR;
-                pisan->vals = "Undefined function: " + pisa->vals;
-                return pisan;
+                pRet = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
+                pRet->t = ISAtom::TokType::ERROR;
+                pRet->vals = "Undefined function: " + pisa->vals;
             }
-            if (!pRetCur) {
-                pRet = pReti;
-                pRetCur = pRet;
-            } else {
-                pRetCur->pNext = pReti;
-                pRetCur = pReti;
-            }
-            return pReti;
-            // pCur = nullptr;  // pN;
             break;
         case ISAtom::TokType::ERROR:
-            // cout << "Error: " << pisa->vals << endl;
-            return pCur;
+            pRet = pisa;
             break;
         default:
             if (func_only) {
-                pisan = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
-                pisan->t = ISAtom::TokType::ERROR;
-                pisan->vals = "Undefined expression: " + pisa->str();
-                return pisan;
+                pRet = new ISAtom();  // XXX That will loose mem! (Maybe insert error into chain?)
+                pRet->t = ISAtom::TokType::ERROR;
+                pRet->vals = "Undefined expression: " + pisa->str();
             } else {
-                return pCur;
+                return pRet = pisa;
             }
             break;
         }
