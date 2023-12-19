@@ -182,7 +182,14 @@ void repl(std::string &prompt, std::string &prompt2) {
 }
 
 int main(int argc, char *argv[]) {
-    string prompt = "ℑ⧽ ", prompt2 = " > ";
+  const char *szTerm = std::getenv("TERM");
+  string prompt, prompt2;
+  string term(szTerm);
+  if (term=="linux") {
+    prompt = "I. "; prompt2 = " > ";
+  } else {
+    prompt = "ℑ⧽ "; prompt2 = " > ";
+  }
     repl(prompt, prompt2);
     std::cout << "end-repl" << std::endl;
     return 0;
