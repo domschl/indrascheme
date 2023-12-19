@@ -140,11 +140,17 @@ string charReader(string prompt, bool *pQuit) {
     return inp;
 }
 
-void repl(std::string &prompt, std::string &prompt2) {
+void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
     std::string cmd, inp;
     bool fst;
     string ans;
     IndraScheme ins;
+    ISAtom::DecorType decor;
+
+    if (bUnicode)
+        decor = ISAtom::DecorType::UNICODE;
+    else
+        decor = ISAtom::DecorType::ASCII;
 
     while (true) {
         cmd = "";
@@ -167,9 +173,9 @@ void repl(std::string &prompt, std::string &prompt2) {
         map<string, ISAtom *> ls;
         pisa = ins.chainEval(pisa, ls);
         cout << endl
-             << "⟫ ";
+             << prompt2;
         map<string, ISAtom *> lsyms;
-        ins.print(pisa, lsyms);
+        ins.print(pisa, lsyms, decor);
 
         auto diff = std::chrono::steady_clock::now() - start;
         std::cout << endl;
@@ -182,15 +188,19 @@ void repl(std::string &prompt, std::string &prompt2) {
 }
 
 int main(int argc, char *argv[]) {
-  const char *szTerm = std::getenv("TERM");
-  string prompt, prompt2;
-  string term(szTerm);
-  if (term=="linux") {
-    prompt = "I. "; prompt2 = " > ";
-  } else {
-    prompt = "ℑ⧽ "; prompt2 = " > ";
-  }
-    repl(prompt, prompt2);
+    const char *szTerm = std::getenv("TERM");
+    string prompt, prompt2;
+    string term(szTerm);
+    bool bUnicode = true;
+    if (term == "linux") {
+        prompt = "I> ";
+        prompt2 = " > ";
+        bUnicode = false;
+    } else {
+        prompt = "ℑ⧽ ";
+        prompt2 = "⟫  ";
+    }
+    repl(prompt, prompt2, bUnicode);
     std::cout << "end-repl" << std::endl;
     return 0;
 }

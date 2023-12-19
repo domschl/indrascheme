@@ -24,6 +24,9 @@ class ISAtom {
                    SYMBOL,
                    QUOTE,
                    BRANCH };
+    enum DecorType { NONE = 0,
+                     ASCII = 1,
+                     UNICODE = 2 };
     TokType t;
     int val;
     double valf;
@@ -38,14 +41,21 @@ class ISAtom {
         valf = 0.0;
         vals = "";
     }
-    string str(bool decor = false) {
+    string str(DecorType decor = NONE) {
         string out;
         switch (t) {
         case ISAtom::TokType::NIL:
-            if (decor)
+            switch (decor) {
+            case UNICODE:
                 out = "⦉";
-            else
+                break;
+            case ASCII:
+                out = "<";
+                break;
+            case NONE:
                 out = "";
+                break;
+            }
             break;
         case ISAtom::TokType::ERROR:
             out = "<Error: " + vals + ">";
@@ -60,25 +70,49 @@ class ISAtom {
             out = std::to_string(valf);
             break;
         case ISAtom::TokType::STRING:
-            if (decor)
+            switch (decor) {
+            case ASCII:
+            case UNICODE:
                 out = "\"" + vals + "\"";
-            else
+                break;
+            case NONE:
                 out = vals;
+                break;
+            }
             break;
         case ISAtom::TokType::BOOLEAN:
-            if (val == 0)
-                out = "#f";
-            else
-                out = "#t";
+            switch (decor) {
+            case UNICODE:
+                if (val == 0)
+                    out = "↳ⓕ";
+                else
+                    out = "↳ⓣ";
+                break;
+                break;
+            case ASCII:
+            case NONE:
+                if (val == 0)
+                    out = "#f";
+                else
+                    out = "#t";
+                break;
+            }
             break;
         case ISAtom::TokType::QUOTE:
             out = "'";
             break;
         case ISAtom::TokType::SYMBOL:
-            if (decor)
+            switch (decor) {
+            case UNICODE:
                 out = "ⓢ " + vals;
-            else
+                break;
+            case ASCII:
+                out = "(s)" + vals;
+                break;
+            case NONE:
                 out = vals;
+                break;
+            }
             break;
         default:
             out = "<UNEXPECTED>";
@@ -380,8 +414,8 @@ class IndraScheme {
         return pStart;
     }
 
-    void print(ISAtom *pisa, map<string, ISAtom *> &local_symbols, bool decor = true) {
-        string out = pisa->str(false);
+    void print(ISAtom *pisa, map<string, ISAtom *> &local_symbols, ISAtom::DecorType decor) {
+        string out = pisa->str(decor);
         ISAtom *pN = pisa->pNext;
         if (decor) {
             if (is_inbuilt(pisa->vals) || is_defined_func(pisa->vals)) out = "ⓕ " + out;
@@ -925,7 +959,7 @@ class IndraScheme {
         }
         ISAtom *pP = pisa;
         ISAtom *pResS = chainEval(pP, local_symbols);
-        print(pResS, local_symbols, false);
+        print(pResS, local_symbols, ISAtom::DecorType::NONE);
         return pResS;
     }
 
@@ -1026,19 +1060,20 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *pC = pisa;
-        if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
-            else {
-                pC = eval(pC, local_symbols);
-                if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
-            }
-        if (pC->t == ISAtom::TokType::BRANCH) pC = pC->pChild;
+        if (pC->t == ISAtom::TokType::QUOTE)
+            pC = pC->pNext;
+        else {
+            pC = eval(pC, local_symbols);
+            if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
+        }
+        if (pC->t == ISAtom::TokType::BRANCH)
+            pC = pC->pChild;
         else {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'car' requires one list arg";
             return pRes;
-                
-            }
-                                pRes = new ISAtom(*pC);
+        }
+        pRes = new ISAtom(*pC);
         pRes->pNext = new ISAtom();
         return pRes;
     }
