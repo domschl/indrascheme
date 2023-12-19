@@ -1154,13 +1154,20 @@ class IndraScheme {
     }
 
     ISAtom *eval_symbol(ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
-        ISAtom *p, *pn;
+        ISAtom *p, *pn, *pRet;
         ISAtom *pisa = copyList(pisa_o);
         if (is_defined_symbol(pisa->vals, local_symbols)) {
             if (local_symbols.find(pisa->vals) != local_symbols.end())
                 p = local_symbols[pisa->vals];
-            else
+            else if (symbols.find(pisa->vals) != symbols.end()) {
                 p = symbols[pisa->vals];
+
+            } else {
+                pRet = new ISAtom();
+                pRet->t = ISAtom::TokType::ERROR;
+                pRet->vals = "Invalid state when resolving symbol: " + pisa->vals;
+                return pRet;
+            }
             while (p->t == ISAtom::TokType::SYMBOL) {
                 if (is_defined_symbol(p->vals, local_symbols)) {
                     if (local_symbols.find(p->vals) != local_symbols.end()) {
@@ -1174,8 +1181,10 @@ class IndraScheme {
             }
             return copyList(p);
         } else {
-            // can't eval
-            return pisa;
+            pRet = new ISAtom();
+            pRet->t = ISAtom::TokType::ERROR;
+            pRet->vals = "Undefined symbol: " + pisa->vals;
+            return pRet;
         }
     }
 
