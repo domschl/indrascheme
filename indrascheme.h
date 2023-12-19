@@ -290,13 +290,17 @@ class IndraScheme {
         string curSymbol = "";
         char c;
         bool is_esc = false;
+        bool bError = false;
+        string parsed = "";
+        string errMsg = "";
         ISAtom *pStart;
 
         if (pNode == nullptr) pNode = new ISAtom();
         pStart = pNode;
 
-        while (input.length() > 0) {
+        while (input.length() > 0 && !bError) {
             c = input[0];
+            parsed += c;
             input = input.substr(1);
             switch (state) {
             case START:
@@ -322,16 +326,16 @@ class IndraScheme {
                     }
                     state = COMMENT;
                     break;
-                    /*  ?? What was that?
                 case '\'':
                     if (curSymbol.length() == 0) {
                         curSymbol += c;
                         pNode = _insert_curSymbol(pNode, &curSymbol);
                     } else {
-                        curSymbol += c;  // This should probably generate an illegal state...
+                        errMsg = "Unexpected ' within expression";
+                        bError = true;
+                        continue;
                     }
                     break;
-                    */
                 case ' ':
                 case '\n':
                 case '\r':
@@ -346,7 +350,9 @@ class IndraScheme {
                         is_esc = false;
                         curSymbol = "\"";
                     } else {
-                        cout << "STRING-FALLTHROUGH-UNHANDLED <" << curSymbol << "> ";
+                        errMsg = "Unexpected \" within expression";
+                        bError = true;
+                        continue;
                     }
                     break;
                 default:
@@ -406,10 +412,19 @@ class IndraScheme {
                 }
                 break;
             default:
-                cout << "Parser: broken state." << endl;
-                return nullptr;
+                errMsg = "Broken state";
+                bError = true;
+                continue;
                 break;
             }
+        }
+        if (bError) {
+            string fullErr = "Parser Error: " + errMsg + " at: " + parsed;
+            // cout << fullErr << endl;
+            ISAtom *errRes = new ISAtom();
+            errRes->t = ISAtom::TokType::ERROR;
+            errRes->vals = fullErr;
+            return errRes;
         }
         return pStart;
     }
@@ -1226,8 +1241,7 @@ class IndraScheme {
         pN = pCur->pNext;
         switch (pCur->t) {
         case ISAtom::TokType::QUOTE:
-            // pCur = pN;
-            return pCur;
+            pRet = pN;
             break;
         case ISAtom::TokType::BRANCH:
             if (!pRetCur) {
@@ -1297,8 +1311,13 @@ class IndraScheme {
             p->pNext = new ISAtom();  // nullptr;
             switch (p->t) {
             case ISAtom::TokType::QUOTE:
-                pCEi = copyList(p);  // nullptr;
-                is_quote = true;
+                if (is_quote) {
+                    pCEi = copyList(p);
+                    is_quote = false;
+                } else {
+                    pCEi = nullptr;  // copyList(p->pNext);  // nullptr;
+                    is_quote = true;
+                }
                 break;
             case ISAtom::TokType::NIL:
                 is_quote = false;

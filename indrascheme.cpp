@@ -14,6 +14,8 @@ using insch::ISAtom;
 using std::endl;
 using std::string;
 
+// Note: fix Racket test-output with: (print-as-expression #f)
+
 vector<string> input_history;
 size_t max_input_history_len = 10;
 size_t input_history_stack = 0;
