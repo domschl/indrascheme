@@ -172,21 +172,34 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
         ISAtom *pisa = ins.parse(cmd);
 
         // std::cout << std::endl;
-        // ins.print(pisa);
         auto start = std::chrono::steady_clock::now();
-        std::cout << endl;
-        pisa = ins.chainEval(pisa, ls);
+        ISAtom *pisa_res = ins.chainEval(pisa, ls);
         cout << endl
              << prompt2;
         map<string, ISAtom *> lsyms;
-        ins.print(pisa, lsyms, decor, true);
+        ins.print(pisa_res, lsyms, decor, true);
 
         auto diff = std::chrono::steady_clock::now() - start;
         std::cout << endl;
 
         std::cout << "Eval dt: "
                   << std::chrono::duration<double, std::nano>(diff).count()
-                  << " ns" << endl;
+                  << " ns" << endl
+                  << "Stacksize 1: " << ins.gc_size() << endl;
+
+        ins.deleteList(pisa_res);
+        cout << "Stacksize 2: " << ins.gc_size() << endl;
+        ins.deleteList(pisa);
+        cout << "Stacksize 3: " << ins.gc_size() << endl;
+
+        /*
+        for (auto p : ins.gctr) {
+            cout << "Debris: " << p.first << ", " << p.second << " " << ins.tokTypeNames[p.first->t] << " ";
+            ins.print(p.first, lsyms, decor, true);
+            cout << endl;
+        }
+        */
+        // ins.gc_clear(nullptr, lsyms);
     }
 }
 
