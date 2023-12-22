@@ -128,7 +128,7 @@ class IndraScheme {
     map<string, ISAtom *> symbols;
     map<string, ISAtom *> funcs;
     vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "Branch"};
-    vector<ISAtom *> gctr;
+    map<ISAtom *, size_t> gctr;
 
     IndraScheme() {
         for (auto cm_op : "+-*/%") {
@@ -154,111 +154,123 @@ class IndraScheme {
         inbuilts["eval"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
     }
 
-    ISAtom *gca(const ISAtom *src = nullptr) {
+    ISAtom *gca(ISAtom *src = nullptr) {
         ISAtom *nisa;
-        if (src)
-            nisa = new ISAtom(*src);
-        else
+        if (src == nullptr) {
             nisa = new ISAtom();
-        gctr.push_back(nisa);
-        return nisa;
-    }
-
-    bool _bAtomInUseSub(const ISAtom *pisa, map<string, ISAtom *> &atom_map) {
-        bool inuse = false;
-        if (!pisa) return false;
-        for (auto en : atom_map) {
-            ISAtom *p = en.second;
-            if (!p) continue;
-            if (p == pisa) {
-                return true;
-            }
-            if (pisa->pNext) {
-                inuse = _bAtomInUseSub(pisa->pNext, atom_map);
-                if (inuse) return inuse;
-            }
-            if (pisa->pChild) {
-                inuse = _bAtomInUseSub(pisa->pChild, atom_map);
-                if (inuse) return inuse;
+            gctr[nisa] = 1;
+            return nisa;
+        } else {
+            auto pos = gctr.find(src);
+            if (pos == gctr.end()) {
+                nisa = new ISAtom(*src);
+                gctr[nisa] = 1;
+                return nisa;
+            } else {
+                // cout << "recl." << endl;
+                gctr[src] = gctr[src] + 1;
+                return src;
             }
         }
-        return false;
     }
 
-    bool bAtomInUse(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
-        bool inuse = false;
-        cout << "au1" << endl;
-        if (!pisa) return false;
-        inuse = _bAtomInUseSub(pisa, local_symbols);
-        if (inuse) {
-            cout << "au-e" << endl;
-            return inuse;
-        }
-        cout << "au2" << endl;
-        inuse = _bAtomInUseSub(pisa, symbols);
-        if (inuse) {
-            cout << "au-e" << endl;
-            return inuse;
-        }
-        cout << "au3" << endl;
-        inuse = _bAtomInUseSub(pisa, funcs);
-        if (inuse) {
-            cout << "au-e" << endl;
-            return inuse;
-        }
-        cout << "au4" << endl;
-        return false;
-    }
-
-    bool isCurrent(const ISAtom *pisa, const ISAtom *current) {
-        if (!current) return false;
-        if (current == pisa) return true;
-        bool b;
-        if (current->pNext) {
-            b = isCurrent(pisa, current->pNext);
-            if (b) return true;
-        }
-        if (current->pChild) {
-            b = isCurrent(pisa, current->pChild);
-            if (b) return true;
-        }
-        return false;
-    }
-
-    void gc(const ISAtom *current, map<string, ISAtom *> &local_symbols, int start_index = 0) {
-        size_t gc_size, gc_freed;
-        cout << "gc1" << endl;
-        gc_size = gctr.size();
-        gc_freed = 0;
-        for (auto iter = gctr.begin() + start_index; iter != gctr.end();) {
-            cout << "gc2" << endl;
-            ISAtom *p = *iter;
-            if (!p) continue;
-            if (current) {
-                if (isCurrent(p, current)) {
-                    cout << "Current: " << p->str() << " | ";
-                    ++iter;
-                    continue;
+    /*
+        bool _bAtomInUseSub(const ISAtom *pisa, map<string, ISAtom *> &atom_map) {
+            bool inuse = false;
+            if (!pisa) return false;
+            for (auto en : atom_map) {
+                ISAtom *p = en.second;
+                if (!p) continue;
+                if (p == pisa) {
+                    return true;
+                }
+                if (pisa->pNext) {
+                    inuse = _bAtomInUseSub(pisa->pNext, atom_map);
+                    if (inuse) return inuse;
+                }
+                if (pisa->pChild) {
+                    inuse = _bAtomInUseSub(pisa->pChild, atom_map);
+                    if (inuse) return inuse;
                 }
             }
-            cout << "gc3" << endl;
-            if (!bAtomInUse(p, local_symbols)) {
-                cout << "gc31" << endl;
-                cout << "Freeing: " << p->str(ISAtom::DecorType::UNICODE) << " | ";
-                cout << "gc32" << endl;
-                delete p;
-                cout << "gc33" << endl;
-                iter = gctr.erase(iter);
-                cout << "gc34" << endl;
-                iter;
-                ++gc_freed;
-            } else {
-                ++iter;
-            }
-            cout << "gc4" << endl;
+            return false;
         }
-        cout << "GC: " << gc_size << ", freed: " << gc_freed << ", new size: " << gctr.size() << endl;
-    }
+
+        bool bAtomInUse(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+            bool inuse = false;
+            cout << "au1" << endl;
+            if (!pisa) return false;
+            inuse = _bAtomInUseSub(pisa, local_symbols);
+            if (inuse) {
+                cout << "au-e" << endl;
+                return inuse;
+            }
+            cout << "au2" << endl;
+            inuse = _bAtomInUseSub(pisa, symbols);
+            if (inuse) {
+                cout << "au-e" << endl;
+                return inuse;
+            }
+            cout << "au3" << endl;
+            inuse = _bAtomInUseSub(pisa, funcs);
+            if (inuse) {
+                cout << "au-e" << endl;
+                return inuse;
+            }
+            cout << "au4" << endl;
+            return false;
+        }
+
+        bool isCurrent(const ISAtom *pisa, const ISAtom *current) {
+            if (!current) return false;
+            if (current == pisa) return true;
+            bool b;
+            if (current->pNext) {
+                b = isCurrent(pisa, current->pNext);
+                if (b) return true;
+            }
+            if (current->pChild) {
+                b = isCurrent(pisa, current->pChild);
+                if (b) return true;
+            }
+            return false;
+        }
+
+
+        void gc(const ISAtom *current, map<string, ISAtom *> &local_symbols, int start_index = 0) {
+            size_t gc_size, gc_freed;
+            cout << "gc1" << endl;
+            gc_size = gctr.size();
+            gc_freed = 0;
+            for (auto iter = gctr.begin() + start_index; iter != gctr.end();) {
+                cout << "gc2" << endl;
+                ISAtom *p = *iter;
+                if (!p) continue;
+                if (current) {
+                    if (isCurrent(p, current)) {
+                        cout << "Current: " << p->str() << " | ";
+                        ++iter;
+                        continue;
+                    }
+                }
+                cout << "gc3" << endl;
+                if (!bAtomInUse(p, local_symbols)) {
+                    cout << "gc31" << endl;
+                    cout << "Freeing: " << p->str(ISAtom::DecorType::UNICODE) << " | ";
+                    cout << "gc32" << endl;
+                    gcd(p);
+                    cout << "gc33" << endl;
+                    iter = gctr.erase(iter);
+                    cout << "gc34" << endl;
+                    ++gc_freed;
+                } else {
+                    ++iter;
+                }
+                cout << "gc4" << endl;
+            }
+            cout << "GC: " << gc_size << ", freed: " << gc_freed << ", new size: " << gctr.size() << endl;
+        }
+        */
 
     size_t gc_size() {
         return gctr.size();
@@ -333,21 +345,21 @@ class IndraScheme {
         return false;
     }
 
-    ISAtom *parseTok(ISAtom *pisa, string symbol) {  // XXX API mess (const!)
+    void parseTok(ISAtom *pisa, string symbol) {  // XXX API mess (const!)
         if (is_int(symbol)) {
             pisa->t = ISAtom::TokType::INT;
             pisa->val = atoi(symbol.c_str());
-            return pisa;
+            return;
         }
         if (is_float(symbol)) {
             pisa->t = ISAtom::TokType::FLOAT;
             pisa->valf = atof(symbol.c_str());
-            return pisa;
+            return;
         }
         if (is_string(symbol)) {
             pisa->t = ISAtom::TokType::STRING;
             pisa->vals = symbol.substr(1, symbol.length() - 2);
-            return pisa;
+            return;
         }
         if (is_boolean(symbol)) {
             pisa->t = ISAtom::TokType::BOOLEAN;
@@ -355,21 +367,21 @@ class IndraScheme {
                 pisa->val = 1;
             else
                 pisa->val = 0;
-            return pisa;
+            return;
         }
         if (is_symbol(symbol)) {
             pisa->t = ISAtom::TokType::SYMBOL;
             pisa->vals = symbol;
-            return pisa;
+            return;
         }
         if (is_quote(symbol)) {
             pisa->t = ISAtom::TokType::QUOTE;
             pisa->vals = symbol;
-            return pisa;
+            return;
         }
         pisa->t = ISAtom::TokType::ERROR;
         pisa->vals = "Can't parse: <" + symbol + ">";
-        return pisa;
+        return;
     }
 
     ISAtom *_insert_curSymbol(ISAtom *pNode, string *pCurSymbol) {
@@ -392,8 +404,11 @@ class IndraScheme {
         string errMsg = "";
         ISAtom *pStart;
 
-        if (pNode == nullptr) pNode = gca();
-        pStart = pNode;
+        if (pNode == nullptr)
+            pStart = gca();
+        else
+            pStart = pNode;
+        ISAtom *pCurNode = pStart;
 
         while (input.length() > 0 && !bError) {
             c = input[0];
@@ -404,29 +419,29 @@ class IndraScheme {
                 switch (c) {
                 case '(':
                     if (curSymbol.length() > 0) {
-                        pNode = _insert_curSymbol(pNode, &curSymbol);
+                        pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
                     }
-                    pNode->t = ISAtom::TokType::BRANCH;
-                    pNode->pChild = parse(input, nullptr, level + 1);
-                    pNode->pNext = gca();
-                    pNode = pNode->pNext;
+                    pCurNode->t = ISAtom::TokType::BRANCH;
+                    pCurNode->pChild = parse(input, nullptr, level + 1);
+                    pCurNode->pNext = gca();
+                    pCurNode = pCurNode->pNext;
                     break;
                 case ')':
                     if (curSymbol.length() > 0) {
-                        pNode = _insert_curSymbol(pNode, &curSymbol);
+                        pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
                     }
                     return pStart;
                     break;
                 case ';':
                     if (curSymbol.length() > 0) {
-                        pNode = _insert_curSymbol(pNode, &curSymbol);
+                        pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
                     }
                     state = COMMENT;
                     break;
                 case '\'':
                     if (curSymbol.length() == 0) {
                         curSymbol += c;
-                        pNode = _insert_curSymbol(pNode, &curSymbol);
+                        pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
                     } else {
                         errMsg = "Unexpected ' within expression";
                         bError = true;
@@ -438,7 +453,7 @@ class IndraScheme {
                 case '\r':
                 case '\t':
                     if (curSymbol.length() > 0) {
-                        pNode = _insert_curSymbol(pNode, &curSymbol);
+                        pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
                     }
                     break;
                 case '"':
@@ -475,7 +490,7 @@ class IndraScheme {
                 case '"':
                     if (!is_esc) {
                         curSymbol += c;
-                        pNode = _insert_curSymbol(pNode, &curSymbol);
+                        pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
                         state = START;
                     } else {
                         is_esc = false;
@@ -517,12 +532,13 @@ class IndraScheme {
         }
         if (bError) {
             string fullErr = "Parser Error: " + errMsg + " at: " + parsed;
-            // cout << fullErr << endl;
             ISAtom *errRes = gca();
             errRes->t = ISAtom::TokType::ERROR;
             errRes->vals = fullErr;
             return errRes;
         }
+        // map<string, ISAtom *> ls = {};
+        //  print(pStart, ls, ISAtom::DecorType::UNICODE, true);
         return pStart;
     }
 
@@ -547,10 +563,10 @@ class IndraScheme {
     }
 
     ISAtom *
-    cmp_2ops(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols, string m_op) {
+    cmp_2ops(const ISAtom *pisa, map<string, ISAtom *> &local_symbols, string m_op) {
         // cout << m_op << endl;
-        ISAtom *pisa = copyList(pisa_o);
-        ISAtom *p = pisa, *pn = nullptr;
+        // ISAtom *pisa = copyList(pisa_o);
+        const ISAtom *p = pisa, *pn = nullptr;
         ISAtom *pRes = gca();
 
         if (getListLen(pisa) != 3) {
@@ -558,7 +574,7 @@ class IndraScheme {
             pRes->vals = "Not enough operands for <" + m_op + "> operation";
             return pRes;
         }
-        ISAtom *pl = pisa, *pr = pisa->pNext;
+        const ISAtom *pl = pisa, *pr = pisa->pNext;
         pl = chainEval(pl, local_symbols);
         pr = chainEval(pr, local_symbols);
         if (pl->t != pr->t) {
@@ -678,12 +694,11 @@ class IndraScheme {
         }
     }
 
-    ISAtom *math_2ops(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols, string m_op) {
-        // cout << m_op << endl;
-        ISAtom *pisa = copyList(pisa_o);
+    ISAtom *math_2ops(const ISAtom *pisa, map<string, ISAtom *> &local_symbols, string m_op) {
+        // ISAtom *pisa = copyList(pisa_o);
         int res = 0;
         double fres = 0.0;
-        ISAtom *p = pisa, *pn = nullptr;
+        const ISAtom *p = pisa, *pn = nullptr;
         bool fl = false;
         bool first = true;
         ISAtom *pRes = gca();
@@ -695,9 +710,9 @@ class IndraScheme {
         }
 
         while (p != nullptr) {
-            ISAtom *pn = p->pNext;
+            // ISAtom *pn = p->pNext;
             p = chainEval(p, local_symbols);
-            p->pNext = pn;
+            // p->pNext = pn;
             if (p->t == ISAtom::TokType::INT) {
                 if (first) {
                     res = p->val;
@@ -841,20 +856,31 @@ class IndraScheme {
     }
 
     ISAtom *copyList(const ISAtom *pisa) {
-        // return pisa;
-
         if (pisa == nullptr) return nullptr;
-        ISAtom *c = gca(pisa);
-        if (pisa->pChild) c->pChild = copyList(pisa->pChild);
-        if (pisa->pNext) c->pNext = copyList(pisa->pNext);
+        ISAtom *pT = new ISAtom(*pisa);
+        if (pisa->pChild) pT->pChild = copyList(pisa->pChild);
+        if (pisa->pNext) pT->pNext = copyList(pisa->pNext);
+        ISAtom *c = gca(pT);
+        delete pT;
         return c;
+    }
+
+    void gcd(ISAtom *pisa) {
+        auto pos = gctr.find(pisa);
+        if (pos == gctr.end()) {
+            cout << "Deleting unacounted allocation." << endl;
+            delete pisa;
+        } else {
+            auto pIndex = gctr.erase(pos);
+            delete pisa;
+        }
     }
 
     void deleteList(ISAtom *pisa) {
         if (pisa == nullptr) return;
         deleteList(pisa->pChild);
         deleteList(pisa->pNext);
-        delete pisa;
+        gcd(pisa);
     }
 
     bool is_defined(string name, map<string, ISAtom *> &local_symbols) {
@@ -872,15 +898,15 @@ class IndraScheme {
         return true;
     }
 
-    ISAtom *makeDefine(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
-        ISAtom *pisa = copyList(pisa_o);
+    ISAtom *makeDefine(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+        // ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'define' requires 2 operands: name and value(s)";
             return pRes;
         }
-        ISAtom *pN = pisa;
+        const ISAtom *pN = pisa;
         ISAtom *pV = pN->pNext;
         ISAtom *pNa;
         int n = 0;
@@ -921,7 +947,7 @@ class IndraScheme {
             } else {
                 if (!err) {
                     pNa = pN->pChild;
-                    funcs[pNa->vals] = pisa;
+                    funcs[pNa->vals] = copyList(pisa);
                     pRes->t = ISAtom::TokType::NIL;
                 }
             }
@@ -935,8 +961,8 @@ class IndraScheme {
         }
     }
 
-    ISAtom *makeLocalDefine(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
-        ISAtom *pisa = copyList(pisa_o);
+    ISAtom *makeLocalDefine(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+        // ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 2) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -978,13 +1004,15 @@ class IndraScheme {
 
         if (pisa->pNext) {
             ISAtom *pExpr = pisa->pNext;
-            ISAtom *pNa, *pR;
+            ISAtom *pNa;
+            const ISAtom *pR;
             pR = pisa;
             while (pExpr && pExpr->t != ISAtom::TokType::NIL) {
                 pNa = pExpr->pNext;
                 ISAtom *pNc = copyList(pExpr);
                 pNc->pNext = nullptr;
                 pR = eval(pNc, local_symbols);
+                deleteList(pNc);
                 pExpr = pNa;
             }
             return copyList(pR);
@@ -1001,8 +1029,10 @@ class IndraScheme {
             pRes->vals = "'if' requires 2 or 3 operands: <condition> <true-expr> [<false-expr>]";
             return pRes;
         }
-        ISAtom *pC = gca(pisa);
-        pC->pNext = nullptr;
+        ISAtom *pTt = new ISAtom(*pisa);
+        pTt->pNext = nullptr;
+        const ISAtom *pC = gca(pTt);
+        delete pTt;
         ISAtom *pT = copyList(pisa->pNext);
         ISAtom *pF = copyList(pT->pNext);
         pT->pNext = nullptr;
@@ -1032,8 +1062,11 @@ class IndraScheme {
             pRes->vals = "'while' requires at least 2 operands: <condition> <expr> [<expr>]...";
             return pRes;
         }
-        ISAtom *pC = gca(pisa);
-        pC->pNext = nullptr;
+        ISAtom *pT = new ISAtom(*pisa);
+        pT->pNext = nullptr;
+        const ISAtom *pC = gca(pT);
+        delete pT;
+
         ISAtom *pL = pisa->pNext;
         ISAtom *pN;
 
@@ -1063,16 +1096,16 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *evalPrint(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
-        ISAtom *pisa = copyList(pisa_o);
+    ISAtom *evalPrint(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+        // ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 1) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'print' requires at least 1 operand: <expr> [<expr>]...";
             return pRes;
         }
-        ISAtom *pP = pisa;
-        ISAtom *pResS = chainEval(pP, local_symbols);
+        // ISAtom *pP = pisa;
+        ISAtom *pResS = chainEval(pisa, local_symbols);
         print(pResS, local_symbols, ISAtom::DecorType::NONE, false);
         return pResS;
     }
@@ -1118,14 +1151,18 @@ class IndraScheme {
         pRes->pNext = gca();
         pRes = pRes->pNext;
         pRes->t = ISAtom::TokType::BRANCH;
-        pRes->pChild = gca(pisa);
+        ISAtom *pT = new ISAtom(*pisa);
+        pT->pNext = nullptr;
+        pRes->pChild = gca(pT);
+        delete pT;
         pRes = pRes->pChild;
-        pRes->pNext = nullptr;
         pisa = pisa->pNext;
         while (pisa) {
-            pRes->pNext = gca(pisa);
+            pT = new ISAtom(*pisa);
+            pT->pNext = nullptr;
+            pRes->pNext = gca(pT);
+            delete pT;
             pRes = pRes->pNext;
-            pRes->pNext = nullptr;
             pisa = pisa->pNext;
         }
         return pStart;
@@ -1152,14 +1189,18 @@ class IndraScheme {
         pRes->pNext = gca();
         pRes = pRes->pNext;
         pRes->t = ISAtom::TokType::BRANCH;
-        pRes->pChild = gca(c1);
+        ISAtom *pT = new ISAtom(*c1);
+        pT->pNext = nullptr;
+        pRes->pChild = gca(pT);
+        delete pT;
         pRes = pRes->pChild;
-        pRes->pNext = nullptr;
         pisa = c2->pChild;
         while (pisa) {
-            pRes->pNext = gca(pisa);
+            pT = new ISAtom(*pisa);
+            pT->pNext = nullptr;
+            pRes->pNext = gca(pT);
+            delete pT;
             pRes = pRes->pNext;
-            pRes->pNext = nullptr;
             pisa = pisa->pNext;
         }
         return pStart;
@@ -1329,8 +1370,11 @@ class IndraScheme {
             const ISAtom *pInp = pisa;
             for (auto var_name : localNames) {
                 pInp = pInp->pNext;
-                pCurVar = gca(pInp);  // XXX gc!
-                pCurVar->pNext = nullptr;
+
+                ISAtom *pT = new ISAtom(*pInp);
+                pT->pNext = nullptr;
+                ISAtom *pCurVar = gca(pT);
+                delete pT;
                 function_arguments[var_name] = pCurVar;
             }
             p = eval(pDef->pNext, function_arguments);
