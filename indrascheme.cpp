@@ -166,26 +166,27 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
             }
             break;
         }
+        map<string, ISAtom *> ls = {};
+        // cout << "GLOBAL: ";
+        // ins.gc(nullptr, ls, 0);
         ISAtom *pisa = ins.parse(cmd);
 
         // std::cout << std::endl;
         // ins.print(pisa);
         auto start = std::chrono::steady_clock::now();
         std::cout << endl;
-        map<string, ISAtom *> ls;
         pisa = ins.chainEval(pisa, ls);
         cout << endl
              << prompt2;
         map<string, ISAtom *> lsyms;
-        ins.print(pisa, lsyms, decor);
+        ins.print(pisa, lsyms, decor, true);
 
         auto diff = std::chrono::steady_clock::now() - start;
         std::cout << endl;
 
         std::cout << "Eval dt: "
                   << std::chrono::duration<double, std::nano>(diff).count()
-                  << " ns"
-                  << ", " << endl;
+                  << " ns" << endl;
     }
 }
 
