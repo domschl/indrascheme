@@ -736,16 +736,7 @@ class IndraScheme {
         }
         vector<ISAtom *> pAllocs;
         while (p != nullptr) {
-            // ISAtom *pn = p->pNext;
-            cout << "MATH: ";
-            print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
-            cout << endl;
-
             p = chainEval(p, local_symbols);
-
-            print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
-            cout << endl;
-
             pAllocs.push_back(p);
             // p->pNext = pn;
             if (p->t == ISAtom::TokType::INT) {
@@ -1404,10 +1395,6 @@ class IndraScheme {
         map<string, ISAtom *> function_arguments = local_symbols;
         if (is_defined_func(pisa->vals)) {
             pDef = funcs[pisa->vals];
-            cout << "Fundef: " << pisa->vals << " -> ";
-            print(pDef, local_symbols, ISAtom::DecorType::UNICODE, true);
-            cout << endl;
-
             ISAtom *pNa = pDef->pChild;
             vector<string> localNames;
             int n = 0;
@@ -1449,11 +1436,12 @@ class IndraScheme {
                 ISAtom *pCurVar = gca(pT);
                 delete pT;
                 function_arguments[var_name] = pCurVar;
-                cout << "local var " << var_name << " = ";
-                print(pCurVar, local_symbols, ISAtom::DecorType::UNICODE, true);
-                cout << endl;
             }
             p = eval(pDef->pNext, function_arguments);
+            for (auto v : function_arguments) {
+                deleteList(v.second);
+            }
+            deleteList(pRes);
             return p;
         } else {
             // can't eval
