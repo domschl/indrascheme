@@ -594,6 +594,7 @@ class IndraScheme {
         // ISAtom *pisa = copyList(pisa_o);
         const ISAtom *p = pisa, *pn = nullptr;
         ISAtom *pRes = gca();
+        vector<const ISAtom *> pAllocs;
 
         if (getListLen(pisa) != 3) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -602,10 +603,17 @@ class IndraScheme {
         }
         const ISAtom *pl = pisa, *pr = pisa->pNext;
         pl = chainEval(pl, local_symbols);
+        pAllocs.push_back(pl);
+
         pr = chainEval(pr, local_symbols);
+        pAllocs.push_back(pr);
+
         if (pl->t != pr->t) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Error: compare " + m_op + " requires two operands of same type, got: " + tokTypeNames[pl->t] + " and " + tokTypeNames[pr->t];
+            for (const ISAtom *p : pAllocs) {
+                deleteList((ISAtom *)p);
+            }
             return pRes;
         }
         pRes->t = ISAtom::TokType::BOOLEAN;
@@ -628,12 +636,18 @@ class IndraScheme {
             else {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
+                for (const ISAtom *p : pAllocs) {
+                    deleteList((ISAtom *)p);
+                }
                 return pRes;
             }
             if (r)
                 pRes->val = 1;
             else
                 pRes->val = 0;
+            for (const ISAtom *p : pAllocs) {
+                deleteList((ISAtom *)p);
+            }
             return pRes;
             break;
         case ISAtom::TokType::FLOAT:
@@ -652,12 +666,18 @@ class IndraScheme {
             else {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
+                for (const ISAtom *p : pAllocs) {
+                    deleteList((ISAtom *)p);
+                }
                 return pRes;
             }
             if (r)
                 pRes->val = 1;
             else
                 pRes->val = 0;
+            for (const ISAtom *p : pAllocs) {
+                deleteList((ISAtom *)p);
+            }
             return pRes;
             break;
         case ISAtom::TokType::SYMBOL:
@@ -677,12 +697,18 @@ class IndraScheme {
             else {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
+                for (const ISAtom *p : pAllocs) {
+                    deleteList((ISAtom *)p);
+                }
                 return pRes;
             }
             if (r)
                 pRes->val = 1;
             else
                 pRes->val = 0;
+            for (const ISAtom *p : pAllocs) {
+                deleteList((ISAtom *)p);
+            }
             return pRes;
             break;
         case ISAtom::TokType::BOOLEAN:
@@ -705,17 +731,26 @@ class IndraScheme {
             else {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
+                for (const ISAtom *p : pAllocs) {
+                    deleteList((ISAtom *)p);
+                }
                 return pRes;
             }
             if (r)
                 pRes->val = 1;
             else
                 pRes->val = 0;
+            for (const ISAtom *p : pAllocs) {
+                deleteList((ISAtom *)p);
+            }
             return pRes;
             break;
         default:
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Can't compare " + m_op + " for type: " + tokTypeNames[pl->t];
+            for (const ISAtom *p : pAllocs) {
+                deleteList((ISAtom *)p);
+            }
             return pRes;
         }
     }
@@ -763,6 +798,9 @@ class IndraScheme {
                         if (p->val == 0) {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
+                            for (auto p : pAllocs) {
+                                deleteList(p);
+                            }
                             return pRes;
                         } else {
                             if (fl) {
@@ -775,6 +813,9 @@ class IndraScheme {
                         if (p->val == 0) {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
+                            for (auto p : pAllocs) {
+                                deleteList(p);
+                            }
                             return pRes;
                         } else {
                             if (fl)
@@ -785,6 +826,9 @@ class IndraScheme {
                     } else {
                         pRes->t = ISAtom::TokType::ERROR;
                         pRes->vals = "Op-not-impl: " + m_op;
+                        for (auto p : pAllocs) {
+                            deleteList(p);
+                        }
                         return pRes;
                     }
                 }
@@ -820,6 +864,9 @@ class IndraScheme {
                         if (p->valf == 0) {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
+                            for (auto p : pAllocs) {
+                                deleteList(p);
+                            }
                             return pRes;
                         } else {
                             if (!fl) {
@@ -834,6 +881,9 @@ class IndraScheme {
                         if (p->valf == 0) {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
+                            for (auto p : pAllocs) {
+                                deleteList(p);
+                            }
                             return pRes;
                         } else {
                             if (!fl) {
@@ -847,6 +897,9 @@ class IndraScheme {
                     } else {
                         pRes->t = ISAtom::TokType::ERROR;
                         pRes->vals = "Op-not-impl: " + m_op;
+                        for (auto p : pAllocs) {
+                            deleteList(p);
+                        }
                         return pRes;
                     }
                 }
@@ -858,13 +911,7 @@ class IndraScheme {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Op: " + m_op + ", unhandled tokType: " + tokTypeNames[p->t];
                 if (p->t == ISAtom::TokType::ERROR) pRes->vals += ": " + p->vals;
-                for (auto p : pAllocs) {
-                    deleteList(p);
-                }
             }
-        }
-        for (auto p : pAllocs) {
-            deleteList(p);
         }
         if (fl) {
             pRes->t = ISAtom::TokType::FLOAT;
@@ -872,6 +919,9 @@ class IndraScheme {
         } else {
             pRes->t = ISAtom::TokType::INT;
             pRes->val = res;
+        }
+        for (auto p : pAllocs) {
+            deleteList(p);
         }
         return pRes;
     }
@@ -900,7 +950,10 @@ class IndraScheme {
         if (!pisa) return;
         auto pos = gctr.find(pisa);
         if (pos == gctr.end()) {
-            cout << "Trying to delete unacounted allocation." << endl;
+            cout << "Trying to delete unacounted allocation of: ";
+            map<string, ISAtom *> lh;
+            print(pisa, lh, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
             // delete pisa;
         } else {
             size_t cnt = gctr[pisa];
@@ -908,7 +961,7 @@ class IndraScheme {
             --cnt;
             if (cnt == 0) {
                 // cout << "DEL (not!)" << endl;
-                // delete pisa;
+                delete pisa;
                 gctr.erase(pos);
             } else {
                 // cout << "RefC -> " << cnt << endl;
@@ -1009,8 +1062,10 @@ class IndraScheme {
         }
     }
 
-    ISAtom *makeLocalDefine(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *makeLocalDefine(const ISAtom *pisa, map<string, ISAtom *> &local_symbols_rec) {
         // ISAtom *pisa = copyList(pisa_o);
+        map<string, ISAtom *> local_symbols = local_symbols_rec;
+        vector<ISAtom *> pAllocs;
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 2) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -1028,26 +1083,39 @@ class IndraScheme {
             if (pDef->t != ISAtom::TokType::BRANCH) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'let' list entries must be list: required are a list of key values pairs: ((k v ), ..) [ ()]";
+                for (ISAtom *pA : pAllocs) {
+                    deleteList(pA);
+                }
                 return pRes;
             }
             if (getListLen(pDef->pChild) != 3) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'let' list entries must be list of exactly two entries: required are a list of key values pairs: ((k v ), ..) [ ()]";
+                for (ISAtom *pA : pAllocs) {
+                    deleteList(pA);
+                }
                 return pRes;
             }
             ISAtom *pName = pDef->pChild;
             if (pName->t != ISAtom::TokType::SYMBOL) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'let' list entries must be list of exactly two entries, and first must be a symbol: required are a list of key values pairs: ((k v ), ..) [ ()]";
+                for (ISAtom *pA : pAllocs) {
+                    deleteList(pA);
+                }
                 return pRes;
             }
             ISAtom *pVal = pName->pNext;
             if (pVal->t == ISAtom::TokType::QUOTE) {
-                local_symbols[pName->vals] = copyList(pVal, false);
+                ISAtom *pSym = copyList(pVal, false);
+                local_symbols[pName->vals] = pSym;
+                pAllocs.push_back(pSym);
                 // gctr[local_symbols[pName->vals]] = gctr[local_symbols[pName->vals]] + 1;
             } else {
                 ISAtom *pT = chainEval(pVal, local_symbols);
-                local_symbols[pName->vals] = copyList(pT, false);
+                ISAtom *pSym = copyList(pT, false);
+                local_symbols[pName->vals] = pSym;
+                pAllocs.push_back(pSym);
                 deleteList(pT);
                 // gctr[local_symbols[pName->vals]] = gctr[local_symbols[pName->vals]] + 1;
             }
@@ -1068,9 +1136,17 @@ class IndraScheme {
                 deleteList(pNc);
                 pExpr = pNa;
             }
+            for (ISAtom *pA : pAllocs) {
+                deleteList(pA);
+            }
+            deleteList(pRes);
             return pR;
             // return eval(pV->pNext, local_symbols);
         } else {
+            for (ISAtom *pA : pAllocs) {
+                deleteList(pA);
+            }
+            deleteList(pRes);
             return copyList(pisa);
         }
     }
@@ -1456,10 +1532,14 @@ class IndraScheme {
         pN = pisa->pNext;
         switch (pisa->t) {
         case ISAtom::TokType::QUOTE:
-            pRet = pN;
+            pRet = copyList(pN);
+            deleteList(pisa);
+            return pRet;
             break;
         case ISAtom::TokType::BRANCH:
             pRet = eval(pisa->pChild, local_symbols, true);
+            deleteList(pisa);
+            return pRet;
             break;
         case ISAtom::TokType::SYMBOL:
             if (is_inbuilt(pisa->vals)) {
@@ -1473,9 +1553,12 @@ class IndraScheme {
                 pRet->t = ISAtom::TokType::ERROR;
                 pRet->vals = "Undefined function: " + pisa->vals;
             }
+            deleteList(pisa);
+            return pRet;
             break;
         case ISAtom::TokType::ERROR:
             pRet = pisa;
+            deleteList(pisa);
             return pRet;
             break;
         default:
@@ -1483,13 +1566,14 @@ class IndraScheme {
                 pRet = gca();  // XXX That will loose mem! (Maybe insert error into chain?)
                 pRet->t = ISAtom::TokType::ERROR;
                 pRet->vals = "Undefined expression: " + pisa->str();
+                deleteList(pisa);
+                return pRet;
             } else {
-                return pRet = pisa;
+                pRet = pisa;
+                return pRet;
             }
             break;
         }
-        deleteList(pisa);
-        return pRet;
     }
 
     ISAtom *chainEval(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
@@ -1552,11 +1636,11 @@ class IndraScheme {
                 break;
             default:
                 is_quote = false;
-                ISAtom *pT = new ISAtom(*p);
-                pCEi = gca(pT);  //(pT);
-                delete pT;
-                // cout << "PR: " << tokTypeNames[p->t] << " ";
-                // print(pCEi, local_symbols, ISAtom::DecorType::UNICODE, true);
+                // ISAtom *pT = new ISAtom(*p);
+                pCEi = gca(p);  //(pT);
+                // delete pT;
+                //  cout << "PR: " << tokTypeNames[p->t] << " ";
+                //  print(pCEi, local_symbols, ISAtom::DecorType::UNICODE, true);
                 pAllocs.push_back(pCEi);
                 break;
             }
@@ -1565,18 +1649,19 @@ class IndraScheme {
                 // cout << "atom" << endl;
                 ISAtom *pT = new ISAtom(*pCEi);
                 if (pCEi->pChild) pT->pChild = copyList(pCEi->pChild);
+                deleteList(pCEi);
                 if (!pCE) {
-                    pCE = gca(pT);
+                    pCE = copyList(pT);
                     pAllocs.push_back(pCERes);
                     pCERes = pCE;
                 } else {
                     // pAllocs.push_back(pCE->pNext);
-                    pCE->pNext = gca(pT);
+                    pCE->pNext = copyList(pT);
                     pCE = pCE->pNext;
                     // pCE->pNext = gca();
                     // pAllocs.push_back(pCE->pNext);
                 }
-                delete pT;
+                deleteList(pT);
             }
         }
         for (auto p : pAllocs) {

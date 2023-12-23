@@ -192,13 +192,14 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
         ins.deleteList(pisa);
         cout << "Stacksize 3: " << ins.gc_size() << endl;
 
-        /*
-        for (auto p : ins.gctr) {
-            cout << "Debris: " << p.first << ", " << p.second << " " << ins.tokTypeNames[p.first->t] << " ";
-            ins.print(p.first, lsyms, decor, true);
-            cout << endl;
+        bool showDebris = true;
+        if (showDebris) {
+            for (auto p : ins.gctr) {
+                cout << "Debris: " << p.first << ", " << p.second << " " << ins.tokTypeNames[p.first->t] << " ";
+                ins.print(p.first, lsyms, decor, true);
+                cout << endl;
+            }
         }
-        */
         // ins.gc_clear(nullptr, lsyms);
     }
 }
