@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.1.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.20.0 FATAL_ERROR)
 include(CMakeToolsHelpers OPTIONAL)
 
 # Build type needs to be set as parameter to CMAKE: -DCMAKE_BUILD_TYPE=xxxx

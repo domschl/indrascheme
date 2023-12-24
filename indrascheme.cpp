@@ -20,13 +20,13 @@ vector<string> input_history;
 size_t max_input_history_len = 10;
 size_t input_history_stack = 0;
 
-bool initCharReader(struct termios *pTermSaved) {
+bool initCharReader(struct termios *pTermSaved, string term) {
     struct termios t;
     // Set terminal to single character mode.
     tcgetattr(fileno(stdin), &t);
     *pTermSaved = t;
 
-    t.c_lflag &= (~ICANON & ~ECHO);
+        t.c_lflag &= (~ICANON & ~ECHO);
     t.c_cc[VTIME] = 0;
     t.c_cc[VMIN] = 1;
     if (tcsetattr(fileno(stdin), TCSANOW, &t) < 0) {
@@ -47,10 +47,10 @@ bool quitCharReader(struct termios *pTermSaved) {
     return true;
 }
 
-string charReader(string prompt, bool *pQuit) {
+string charReader(string prompt, bool *pQuit, string term) {
     *pQuit = false;
     struct termios termSaved;
-    initCharReader(&termSaved);
+    initCharReader(&termSaved, term);
     // Read single characters from cin.
     std::streambuf *pbuf = std::cin.rdbuf();
     bool done = false;
@@ -101,7 +101,7 @@ string charReader(string prompt, bool *pQuit) {
                 } else {
                     //  std::cout << "[0x" << std::setw(2) << std::setfill('0') <<
                     //  std::hex << int(c) << "]" << std::flush;
-                    std::cout << c << std::flush;
+                    if (term != "Apple") std::cout << c << std::flush;
                 }
             } else {
                 esc_string += c;
@@ -142,7 +142,7 @@ string charReader(string prompt, bool *pQuit) {
     return inp;
 }
 
-void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
+void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term) {
     std::string cmd, inp;
     bool fst;
     string ans;
@@ -159,24 +159,25 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
         fst = true;
         while (true) {
             bool bq = false;
-            inp = charReader(prompt, &bq);
+            inp = charReader(prompt, &bq, term);
             cmd += inp + "\n";
             if (bq || cmd == "(quit)\n") {
                 return;
             }
             break;
         }
-        map<string, ISAtom *> ls = {};
+        vector<map<string, ISAtom *>> lsyms;
+        lsyms.push_back(map<string, ISAtom*>{});
         // cout << "GLOBAL: ";
         // ins.gc(nullptr, ls, 0);
         ISAtom *pisa = ins.parse(cmd);
 
         // std::cout << std::endl;
         auto start = std::chrono::steady_clock::now();
-        ISAtom *pisa_res = ins.chainEval(pisa, ls);
+        ISAtom *pisa_res = ins.chainEval(pisa, lsyms);
         cout << endl
              << prompt2;
-        map<string, ISAtom *> lsyms;
+
         ins.print(pisa_res, lsyms, decor, true);
 
         auto diff = std::chrono::steady_clock::now() - start;
@@ -187,11 +188,11 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
                   << " ns" << endl
                   << "Stacksize 1: " << ins.gc_size() << endl;
 
-        ins.deleteList(pisa_res);
+        ins.deleteList(pisa_res, "repl 1");
         cout << "Stacksize 2: " << ins.gc_size() << endl;
-        ins.deleteList(pisa);
+        ins.deleteList(pisa, "repl 2");
         cout << "Stacksize 3: " << ins.gc_size() << endl;
-
+/*
         bool showDebris = true;
         if (showDebris) {
             for (auto p : ins.gctr) {
@@ -200,6 +201,8 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
                 cout << endl;
             }
         }
+ */
+        ins.gctr.clear(); // XXX! corpses alot!
         // ins.gc_clear(nullptr, lsyms);
     }
 }
@@ -207,8 +210,10 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode) {
 int main(int argc, char *argv[]) {
     const char *szTerm = std::getenv("TERM");
     string prompt, prompt2;
+    if (!szTerm) szTerm="Apple";
     string term(szTerm);
     bool bUnicode = true;
+    cout << "Indrascheme starting, " << szTerm << endl;
     if (term == "linux") {
         prompt = "I> ";
         prompt2 = " > ";
@@ -217,7 +222,7 @@ int main(int argc, char *argv[]) {
         prompt = "ℑ⧽ ";
         prompt2 = "⟫  ";
     }
-    repl(prompt, prompt2, bUnicode);
+    repl(prompt, prompt2, bUnicode, term);
     std::cout << "end-repl" << std::endl;
     return 0;
 }

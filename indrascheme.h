@@ -124,7 +124,7 @@ class ISAtom {
 
 class IndraScheme {
   public:
-    map<string, std::function<ISAtom *(ISAtom *, map<string, ISAtom *> &)>> inbuilts;
+    map<string, std::function<ISAtom *(ISAtom *, vector<map<string, ISAtom *>> &)>> inbuilts;
     map<string, ISAtom *> symbols;
     map<string, ISAtom *> funcs;
     vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "Branch"};
@@ -134,27 +134,27 @@ class IndraScheme {
         for (auto cm_op : "+-*/%") {
             if (cm_op == 0) continue;
             string m_op{cm_op};
-            inbuilts[m_op] = [this, m_op](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return math_2ops(pisa, local_symbols, m_op); };
+            inbuilts[m_op] = [this, m_op](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return math_2ops(pisa, local_symbols, m_op); };
         }
         for (auto cmp_op : {"==", "!=", ">=", "<=", "<", ">", "and", "or"}) {
             string m_op{cmp_op};
-            inbuilts[m_op] = [this, m_op](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return cmp_2ops(pisa, local_symbols, m_op); };
+            inbuilts[m_op] = [this, m_op](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return cmp_2ops(pisa, local_symbols, m_op); };
         }
-        inbuilts["define"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return makeDefine(pisa, local_symbols); };
-        inbuilts["let"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return makeLocalDefine(pisa, local_symbols); };
-        inbuilts["if"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalIf(pisa, local_symbols); };
-        inbuilts["while"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
-        inbuilts["print"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
-        inbuilts["load"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalLoad(pisa, local_symbols); };
-        inbuilts["list"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listList(pisa, local_symbols); };
-        inbuilts["cons"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listCons(pisa, local_symbols); };
-        inbuilts["car"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listCar(pisa, local_symbols); };
-        inbuilts["cdr"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listCdr(pisa, local_symbols); };
-        inbuilts["len"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return listLen(pisa, local_symbols); };
-        inbuilts["eval"] = [&](ISAtom *pisa, map<string, ISAtom *> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
+        inbuilts["define"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return makeDefine(pisa, local_symbols); };
+        inbuilts["let"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return makeLocalDefine(pisa, local_symbols); };
+        inbuilts["if"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalIf(pisa, local_symbols); };
+        inbuilts["while"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
+        inbuilts["print"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
+        inbuilts["load"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalLoad(pisa, local_symbols); };
+        inbuilts["list"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listList(pisa, local_symbols); };
+        inbuilts["cons"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCons(pisa, local_symbols); };
+        inbuilts["car"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCar(pisa, local_symbols); };
+        inbuilts["cdr"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCdr(pisa, local_symbols); };
+        inbuilts["len"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listLen(pisa, local_symbols); };
+        inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
     }
 
-    ISAtom *gca(ISAtom *src = nullptr, bool bRegister = true) {
+    ISAtom *gca(ISAtom *src = nullptr, bool bRegister = true, bool noRefCount = true) {
         ISAtom *nisa;
         if (src == nullptr || !bRegister) {
             if (bRegister) {
@@ -169,7 +169,7 @@ class IndraScheme {
             return nisa;
         } else {
             auto pos = gctr.find(src);
-            if (pos == gctr.end()) {
+            if (noRefCount || pos == gctr.end()) {
                 nisa = new ISAtom(*src);
                 gctr[nisa] = 1;
                 /*
@@ -184,114 +184,48 @@ class IndraScheme {
                 if (bCheckNew)
                     cout << "DUP(FAIL! should be new.)" << endl;
                 else
-                    cout << "DUP" << endl;
                 */
                 gctr[src] = gctr[src] + 1;
-                // cout << "N+: " << src << " " << gctr[src] << endl;
+                cout << "N+: " << src << " " << gctr[src] << endl;
                 return src;
             }
         }
     }
-
-    /*
-        bool _bAtomInUseSub(const ISAtom *pisa, map<string, ISAtom *> &atom_map) {
-            bool inuse = false;
-            if (!pisa) return false;
-            for (auto en : atom_map) {
-                ISAtom *p = en.second;
-                if (!p) continue;
-                if (p == pisa) {
-                    return true;
-                }
-                if (pisa->pNext) {
-                    inuse = _bAtomInUseSub(pisa->pNext, atom_map);
-                    if (inuse) return inuse;
-                }
-                if (pisa->pChild) {
-                    inuse = _bAtomInUseSub(pisa->pChild, atom_map);
-                    if (inuse) return inuse;
-                }
+    
+    map<ISAtom *, string> gctr_del_ctx;
+    
+    void gcd(ISAtom *pisa, string context) {
+        if (!pisa) return;
+        auto pos = gctr.find(pisa);
+        if (pos == gctr.end()) {
+            cout << "Trying to delete unaccounted allocation at " << context << " of: " << pisa << ", ";
+            vector<map<string, ISAtom *>> lh;
+            lh.push_back({});
+            print(pisa, lh, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
+            
+            if (gctr_del_ctx.find(pisa) != gctr_del_ctx.end()) {
+                cout << "This has been deleted at context: " << gctr_del_ctx[pisa] << endl;
             }
-            return false;
+            // delete pisa;
+        } else {
+            size_t cnt = gctr[pisa];
+            // cout << pisa << ": " << cnt << endl;
+            --cnt;
+            if (cnt == 0) {
+                // cout << "DEL (not!)" << endl;
+                gctr_del_ctx[pisa] = context;
+                delete pisa;
+                gctr.erase(pos);
+            } else {
+                cout << "RefC -> " << cnt << endl;
+                gctr[pisa] = cnt;
+            }
+            // cout << pisa << ": " << cnt << endl;
         }
+    }
 
-        bool bAtomInUse(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
-            bool inuse = false;
-            cout << "au1" << endl;
-            if (!pisa) return false;
-            inuse = _bAtomInUseSub(pisa, local_symbols);
-            if (inuse) {
-                cout << "au-e" << endl;
-                return inuse;
-            }
-            cout << "au2" << endl;
-            inuse = _bAtomInUseSub(pisa, symbols);
-            if (inuse) {
-                cout << "au-e" << endl;
-                return inuse;
-            }
-            cout << "au3" << endl;
-            inuse = _bAtomInUseSub(pisa, funcs);
-            if (inuse) {
-                cout << "au-e" << endl;
-                return inuse;
-            }
-            cout << "au4" << endl;
-            return false;
-        }
-
-        bool isCurrent(const ISAtom *pisa, const ISAtom *current) {
-            if (!current) return false;
-            if (current == pisa) return true;
-            bool b;
-            if (current->pNext) {
-                b = isCurrent(pisa, current->pNext);
-                if (b) return true;
-            }
-            if (current->pChild) {
-                b = isCurrent(pisa, current->pChild);
-                if (b) return true;
-            }
-            return false;
-        }
-
-
-        void gc(const ISAtom *current, map<string, ISAtom *> &local_symbols, int start_index = 0) {
-            size_t gc_size, gc_freed;
-            cout << "gc1" << endl;
-            gc_size = gctr.size();
-            gc_freed = 0;
-            for (auto iter = gctr.begin() + start_index; iter != gctr.end();) {
-                cout << "gc2" << endl;
-                ISAtom *p = *iter;
-                if (!p) continue;
-                if (current) {
-                    if (isCurrent(p, current)) {
-                        cout << "Current: " << p->str() << " | ";
-                        ++iter;
-                        continue;
-                    }
-                }
-                cout << "gc3" << endl;
-                if (!bAtomInUse(p, local_symbols)) {
-                    cout << "gc31" << endl;
-                    cout << "Freeing: " << p->str(ISAtom::DecorType::UNICODE) << " | ";
-                    cout << "gc32" << endl;
-                    gcd(p);
-                    cout << "gc33" << endl;
-                    iter = gctr.erase(iter);
-                    cout << "gc34" << endl;
-                    ++gc_freed;
-                } else {
-                    ++iter;
-                }
-                cout << "gc4" << endl;
-            }
-            cout << "GC: " << gc_size << ", freed: " << gc_freed << ", new size: " << gctr.size() << endl;
-        }
-        */
-
-    void gc_clear(const ISAtom *current, map<string, ISAtom *> &local_symbols, int start_index = 0) {
+    void gc_clear(const ISAtom *current, vector<map<string, ISAtom *>> &local_symbols, int start_index = 0) {
         size_t gc_size, gc_freed;
         for (auto it = gctr.cbegin(); it != gctr.cend();) {
             delete it->first;
@@ -569,7 +503,7 @@ class IndraScheme {
         return pStart;
     }
 
-    void print(const ISAtom *pisa, map<string, ISAtom *> &local_symbols, ISAtom::DecorType decor, bool bAutoSeparators) {
+    void print(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, ISAtom::DecorType decor, bool bAutoSeparators) {
         string out = pisa->str(decor);
         ISAtom *pN = pisa->pNext;
         if (decor) {
@@ -589,7 +523,7 @@ class IndraScheme {
         }
     }
 
-    ISAtom *cmp_2ops(const ISAtom *pisa, map<string, ISAtom *> &local_symbols, string m_op) {
+    ISAtom *cmp_2ops(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, string m_op) {
         // cout << m_op << endl;
         // ISAtom *pisa = copyList(pisa_o);
         const ISAtom *p = pisa, *pn = nullptr;
@@ -612,7 +546,7 @@ class IndraScheme {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Error: compare " + m_op + " requires two operands of same type, got: " + tokTypeNames[pl->t] + " and " + tokTypeNames[pr->t];
             for (const ISAtom *p : pAllocs) {
-                deleteList((ISAtom *)p);
+                deleteList((ISAtom *)p, "cmp_2ops 1");
             }
             return pRes;
         }
@@ -637,7 +571,7 @@ class IndraScheme {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
                 for (const ISAtom *p : pAllocs) {
-                    deleteList((ISAtom *)p);
+                    deleteList((ISAtom *)p, "cmp_2ops 2");
                 }
                 return pRes;
             }
@@ -646,7 +580,7 @@ class IndraScheme {
             else
                 pRes->val = 0;
             for (const ISAtom *p : pAllocs) {
-                deleteList((ISAtom *)p);
+                deleteList((ISAtom *)p, "cmp_2ops 3");
             }
             return pRes;
             break;
@@ -667,7 +601,7 @@ class IndraScheme {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
                 for (const ISAtom *p : pAllocs) {
-                    deleteList((ISAtom *)p);
+                    deleteList((ISAtom *)p, "cmp_2ops 4");
                 }
                 return pRes;
             }
@@ -676,7 +610,7 @@ class IndraScheme {
             else
                 pRes->val = 0;
             for (const ISAtom *p : pAllocs) {
-                deleteList((ISAtom *)p);
+                deleteList((ISAtom *)p, "cmp_2ops 5");
             }
             return pRes;
             break;
@@ -698,7 +632,7 @@ class IndraScheme {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
                 for (const ISAtom *p : pAllocs) {
-                    deleteList((ISAtom *)p);
+                    deleteList((ISAtom *)p, "cmp_2ops 6");
                 }
                 return pRes;
             }
@@ -707,7 +641,7 @@ class IndraScheme {
             else
                 pRes->val = 0;
             for (const ISAtom *p : pAllocs) {
-                deleteList((ISAtom *)p);
+                deleteList((ISAtom *)p, "cmp_2ops 7");
             }
             return pRes;
             break;
@@ -732,7 +666,7 @@ class IndraScheme {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Unsupported compare operation: " + m_op + " for type " + tokTypeNames[pl->t];
                 for (const ISAtom *p : pAllocs) {
-                    deleteList((ISAtom *)p);
+                    deleteList((ISAtom *)p, "cmp_2ops 8");
                 }
                 return pRes;
             }
@@ -741,7 +675,7 @@ class IndraScheme {
             else
                 pRes->val = 0;
             for (const ISAtom *p : pAllocs) {
-                deleteList((ISAtom *)p);
+                deleteList((ISAtom *)p, "cmp_2ops 9");
             }
             return pRes;
             break;
@@ -749,13 +683,13 @@ class IndraScheme {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Can't compare " + m_op + " for type: " + tokTypeNames[pl->t];
             for (const ISAtom *p : pAllocs) {
-                deleteList((ISAtom *)p);
+                deleteList((ISAtom *)p, "cmp_2ops 10");
             }
             return pRes;
         }
     }
 
-    ISAtom *math_2ops(const ISAtom *pisa, map<string, ISAtom *> &local_symbols, string m_op) {
+    ISAtom *math_2ops(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, string m_op) {
         // ISAtom *pisa = copyList(pisa_o);
         int res = 0;
         double fres = 0.0;
@@ -799,7 +733,7 @@ class IndraScheme {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
                             for (auto p : pAllocs) {
-                                deleteList(p);
+                                deleteList(p, "math_2ops 1");
                             }
                             return pRes;
                         } else {
@@ -814,7 +748,7 @@ class IndraScheme {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
                             for (auto p : pAllocs) {
-                                deleteList(p);
+                                deleteList(p, "math_ops 2");
                             }
                             return pRes;
                         } else {
@@ -827,7 +761,7 @@ class IndraScheme {
                         pRes->t = ISAtom::TokType::ERROR;
                         pRes->vals = "Op-not-impl: " + m_op;
                         for (auto p : pAllocs) {
-                            deleteList(p);
+                            deleteList(p, "math_ops 3");
                         }
                         return pRes;
                     }
@@ -865,7 +799,7 @@ class IndraScheme {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
                             for (auto p : pAllocs) {
-                                deleteList(p);
+                                deleteList(p, "math_ops 4");
                             }
                             return pRes;
                         } else {
@@ -882,7 +816,7 @@ class IndraScheme {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
                             for (auto p : pAllocs) {
-                                deleteList(p);
+                                deleteList(p, "math_ops 5");
                             }
                             return pRes;
                         } else {
@@ -898,7 +832,7 @@ class IndraScheme {
                         pRes->t = ISAtom::TokType::ERROR;
                         pRes->vals = "Op-not-impl: " + m_op;
                         for (auto p : pAllocs) {
-                            deleteList(p);
+                            deleteList(p, "math_ops 6");
                         }
                         return pRes;
                     }
@@ -921,7 +855,7 @@ class IndraScheme {
             pRes->val = res;
         }
         for (auto p : pAllocs) {
-            deleteList(p);
+            deleteList(p, "math_ops 7");
         }
         return pRes;
     }
@@ -946,45 +880,68 @@ class IndraScheme {
         return c;
     }
 
-    void gcd(ISAtom *pisa) {
-        if (!pisa) return;
-        auto pos = gctr.find(pisa);
-        if (pos == gctr.end()) {
-            cout << "Trying to delete unacounted allocation of: ";
-            map<string, ISAtom *> lh;
-            print(pisa, lh, ISAtom::DecorType::UNICODE, true);
-            cout << endl;
-            // delete pisa;
-        } else {
-            size_t cnt = gctr[pisa];
-            // cout << pisa << ": " << cnt << endl;
-            --cnt;
-            if (cnt == 0) {
-                // cout << "DEL (not!)" << endl;
-                delete pisa;
-                gctr.erase(pos);
-            } else {
-                // cout << "RefC -> " << cnt << endl;
-                gctr[pisa] = cnt;
-            }
-            // cout << pisa << ": " << cnt << endl;
-        }
-    }
-
-    void deleteList(ISAtom *pisa) {
+    void deleteList(ISAtom *pisa, string context) {
         if (pisa == nullptr) return;
-        deleteList(pisa->pChild);
-        deleteList(pisa->pNext);
-        gcd(pisa);
+        deleteList(pisa->pChild, context+"_C");
+        deleteList(pisa->pNext, context+"_N");
+        gcd(pisa, context);
     }
 
-    bool is_defined(string name, map<string, ISAtom *> &local_symbols) {
-        if (symbols.find(name) == symbols.end() && funcs.find(name) == funcs.end() && local_symbols.find(name) == local_symbols.end()) return false;
+    bool is_defined(string name, vector<map<string, ISAtom *>> &local_symbols) {
+        if (symbols.find(name) == symbols.end() && funcs.find(name) == funcs.end() && is_defined_local_symbol(name, local_symbols) == false) return false;
         return true;
     }
 
-    bool is_defined_symbol(string name, map<string, ISAtom *> &local_symbols) {
-        if (symbols.find(name) == symbols.end() && local_symbols.find(name) == local_symbols.end()) return false;
+    bool is_defined_local_symbol(const string &token, const vector<map<string, ISAtom *>> &local_symbols) {
+        size_t len = local_symbols.size();
+        for (int in = (int)len - 1; in >= 0; in--) {
+            if (local_symbols[in].find(token) != local_symbols[in].end()) return true;
+        }
+        return false;
+    }
+
+    ISAtom *get_local_symbol(const string &token, vector<map<string, ISAtom *>> &local_symbols) {
+        size_t len = local_symbols.size();
+        for (int in = (int)len - 1; in >= 0; in--) {
+            if (local_symbols[in].find(token) != local_symbols[in].end()) {
+                return copyList(local_symbols[in][token]);
+            }
+        }
+        return nullptr;
+    }
+
+    void set_local_symbol(const string &token, ISAtom *val, vector<map<string, ISAtom *>> &local_symbols) {
+        size_t len = local_symbols.size();
+        if (len == 0) {
+            cout << "can't define local variable without local stack!" << endl;
+            return;
+        }
+        for (int in = (int)len - 1; in >= 0; in--) {
+            if (local_symbols[in].find(token) != local_symbols[in].end()) {
+                deleteList(local_symbols[in][token], "set_local_sym");
+                local_symbols[in][token] = val;
+                return;
+            }
+            break;
+        }
+        local_symbols[len - 1][token] = val;
+    }
+
+    void pop_local_symbols(vector<map<string, ISAtom *>> &local_symbols) {
+        size_t len = local_symbols.size();
+        if (len > 0) {
+            int n=0;
+            for (auto p : local_symbols[len - 1]) {
+                deleteList(p.second, "pop_local_sym_"+std::to_string(n));
+                ++n;
+            }
+            local_symbols.pop_back();
+            cout << "cur local sym-table len = " << local_symbols.size() << endl;
+        }
+    }
+
+    bool is_defined_symbol(const string name, vector<map<string, ISAtom *>> &local_symbols) {
+        if (symbols.find(name) == symbols.end() && is_defined_local_symbol(name, local_symbols) == false) return false;
         return true;
     }
 
@@ -993,7 +950,7 @@ class IndraScheme {
         return true;
     }
 
-    ISAtom *makeDefine(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *makeDefine(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         // ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 3) {
@@ -1019,10 +976,10 @@ class IndraScheme {
             } else {
                 ISAtom *pT = chainEval(pV, local_symbols);
                 symbols[pN->vals] = copyList(pT, false);
-                deleteList(pT);
+                deleteList(pT, "makeDefine 1");
                 // gctr[symbols[pN->vals]] = gctr[symbols[pN->vals]] + 1;
             }
-            deleteList(pRes);
+            deleteList(pRes, "makeDefine 2");
             return copyList(symbols[pN->vals]);
             break;
         case ISAtom::TokType::BRANCH:
@@ -1062,9 +1019,7 @@ class IndraScheme {
         }
     }
 
-    ISAtom *makeLocalDefine(const ISAtom *pisa, map<string, ISAtom *> &local_symbols_rec) {
-        // ISAtom *pisa = copyList(pisa_o);
-        map<string, ISAtom *> local_symbols = local_symbols_rec;
+    ISAtom *makeLocalDefine(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         vector<ISAtom *> pAllocs;
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 2) {
@@ -1078,22 +1033,25 @@ class IndraScheme {
             pRes->vals = "'let' no primary list: required are a list of key values pairs: ((k v ), ..) [ ()]";
             return pRes;
         }
+        local_symbols.push_back({});
         ISAtom *pDef = pisa->pChild;
         while (pDef && pDef->t != ISAtom::TokType::NIL) {
             if (pDef->t != ISAtom::TokType::BRANCH) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'let' list entries must be list: required are a list of key values pairs: ((k v ), ..) [ ()]";
                 for (ISAtom *pA : pAllocs) {
-                    deleteList(pA);
+                    deleteList(pA, "makeLocalDefine 1");
                 }
+                pop_local_symbols(local_symbols);
                 return pRes;
             }
             if (getListLen(pDef->pChild) != 3) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'let' list entries must be list of exactly two entries: required are a list of key values pairs: ((k v ), ..) [ ()]";
                 for (ISAtom *pA : pAllocs) {
-                    deleteList(pA);
+                    deleteList(pA, "makeLocalDefine 2");
                 }
+                pop_local_symbols(local_symbols);
                 return pRes;
             }
             ISAtom *pName = pDef->pChild;
@@ -1101,22 +1059,23 @@ class IndraScheme {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'let' list entries must be list of exactly two entries, and first must be a symbol: required are a list of key values pairs: ((k v ), ..) [ ()]";
                 for (ISAtom *pA : pAllocs) {
-                    deleteList(pA);
+                    deleteList(pA, "makeLocalDefine 3");
                 }
+                pop_local_symbols(local_symbols);
                 return pRes;
             }
             ISAtom *pVal = pName->pNext;
             if (pVal->t == ISAtom::TokType::QUOTE) {
                 ISAtom *pSym = copyList(pVal, false);
-                local_symbols[pName->vals] = pSym;
+                set_local_symbol(pName->vals, pSym, local_symbols);
                 pAllocs.push_back(pSym);
                 // gctr[local_symbols[pName->vals]] = gctr[local_symbols[pName->vals]] + 1;
             } else {
                 ISAtom *pT = chainEval(pVal, local_symbols);
                 ISAtom *pSym = copyList(pT, false);
-                local_symbols[pName->vals] = pSym;
+                set_local_symbol(pName->vals, pSym, local_symbols);
                 pAllocs.push_back(pSym);
-                deleteList(pT);
+                deleteList(pT, "makeLocalDefine 4");
                 // gctr[local_symbols[pName->vals]] = gctr[local_symbols[pName->vals]] + 1;
             }
             pDef = pDef->pNext;
@@ -1128,30 +1087,32 @@ class IndraScheme {
             ISAtom *pR;
             pR = nullptr;
             while (pExpr && pExpr->t != ISAtom::TokType::NIL) {
-                if (pR) deleteList(pR);
+                if (pR) deleteList(pR, "makeLocalDefine 4.1");
                 pNa = pExpr->pNext;
                 ISAtom *pNc = copyList(pExpr);
                 pNc->pNext = nullptr;
                 pR = eval(pNc, local_symbols);
-                deleteList(pNc);
+                deleteList(pNc, "makeLocalDefine 5");
                 pExpr = pNa;
             }
             for (ISAtom *pA : pAllocs) {
-                deleteList(pA);
+                deleteList(pA, "makeLocalDefine 6");
             }
-            deleteList(pRes);
+            deleteList(pRes, "makeLocalDefine 7");
+            pop_local_symbols(local_symbols);
             return pR;
             // return eval(pV->pNext, local_symbols);
         } else {
             for (ISAtom *pA : pAllocs) {
-                deleteList(pA);
+                deleteList(pA, "makeLocalDefine 8");
             }
-            deleteList(pRes);
+            deleteList(pRes, "makeLocalDefine 9");
+            pop_local_symbols(local_symbols);
             return copyList(pisa);
         }
     }
 
-    ISAtom *evalIf(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *evalIf(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         if (getListLen(pisa) != 3 && getListLen(pisa) != 4) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -1184,7 +1145,7 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *evalWhile(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *evalWhile(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -1225,7 +1186,7 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *evalPrint(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *evalPrint(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         // ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 1) {
@@ -1239,7 +1200,7 @@ class IndraScheme {
         return pResS;
     }
 
-    ISAtom *evalEval(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *evalEval(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 1) {
@@ -1257,23 +1218,23 @@ class IndraScheme {
         return pResS;
     }
 
-    ISAtom *listLen(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *listLen(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (pisa->t == ISAtom::TokType::QUOTE) pisa = pisa->pNext;
         if (getListLen(pisa) != 2 || pisa->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'len' requires one list or quoted list operand";
-            deleteList(pisa);
+            deleteList(pisa, "listLen 1");
             return pRes;
         }
         pRes->t = ISAtom::TokType::INT;
         pRes->val = getListLen(pisa->pChild) - 1;
-        deleteList(pisa);
+        deleteList(pisa, "listLen 2");
         return pRes;
     }
 
-    ISAtom *listList(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *listList(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         ISAtom *pStart;
@@ -1296,11 +1257,11 @@ class IndraScheme {
             pRes = pRes->pNext;
             pisa = pisa->pNext;
         }
-        deleteList(pisa);
+        deleteList(pisa, "listList 1");
         return pStart;
     }
 
-    ISAtom *listCons(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *listCons(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca(), *pStart;
         pStart = pRes;
@@ -1338,7 +1299,7 @@ class IndraScheme {
         return pStart;
     }
 
-    ISAtom *listCar(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *listCar(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) != 2) {
@@ -1365,7 +1326,7 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *listCdr(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *listCdr(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) != 2) {
@@ -1386,25 +1347,25 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *evalLoad(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *evalLoad(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
         if (getListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'load' requires one string operand, a filename, got: " + std::to_string(getListLen(pisa));
-            deleteList(pisa);
+            deleteList(pisa, "evalLoad 1");
             return pRes;
         }
         ISAtom *pP = pisa;
         if (pP->t != ISAtom::TokType::STRING) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'load' requires a string operand, a filename";
-            deleteList(pisa);
+            deleteList(pisa, "evalLoad 2");
             return pRes;
         }
 
         char buf[129];
-        int nb;
+        size_t nb;
         string cmd = "";
         FILE *fp = fopen(pP->vals.c_str(), "r");
         if (fp) {
@@ -1418,9 +1379,9 @@ class IndraScheme {
         ISAtom *pisa_p = parse(cmd);
         // map<string, ISAtom *> ls;
         ISAtom *pisa_res = chainEval(pisa_p, local_symbols);
-        deleteList(pisa);
-        deleteList(pisa_p);
-        deleteList(pRes);
+        deleteList(pisa, "evalLoad 3");
+        deleteList(pisa_p, "evalLoad 4");
+        deleteList(pRes, "evalLoad 5");
         return pisa_res;
     }
 
@@ -1429,12 +1390,12 @@ class IndraScheme {
         return true;
     }
 
-    ISAtom *eval_symbol(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *eval_symbol(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *p, *pn, *pRet;
         ISAtom *pisa = copyList(pisa_o);
         if (is_defined_symbol(pisa->vals, local_symbols)) {
-            if (local_symbols.find(pisa->vals) != local_symbols.end())
-                p = local_symbols[pisa->vals];
+            if (is_defined_local_symbol(pisa->vals, local_symbols))
+                p = get_local_symbol(pisa->vals, local_symbols);
             else if (symbols.find(pisa->vals) != symbols.end()) {
                 p = symbols[pisa->vals];
                 // cout << "symfound: ";
@@ -1447,8 +1408,8 @@ class IndraScheme {
             }
             while (p->t == ISAtom::TokType::SYMBOL) {
                 if (is_defined_symbol(p->vals, local_symbols)) {
-                    if (local_symbols.find(p->vals) != local_symbols.end()) {
-                        p = local_symbols[p->vals];
+                    if (is_defined_local_symbol(p->vals, local_symbols)) {
+                        p = get_local_symbol(pisa->vals, local_symbols);
                     } else {
                         p = symbols[p->vals];
                     }
@@ -1465,10 +1426,11 @@ class IndraScheme {
         }
     }
 
-    ISAtom *eval_func(const ISAtom *pisa, map<string, ISAtom *> &local_symbols) {
+    ISAtom *eval_func(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *p, *pn, *pDef;
         // ISAtom *pisa = copyList(pisa_o);
-        map<string, ISAtom *> function_arguments = local_symbols;
+        // vector<map<string, ISAtom *>> function_arguments = local_symbols;
+        local_symbols.push_back({});
         if (is_defined_func(pisa->vals)) {
             pDef = funcs[pisa->vals];
             ISAtom *pNa = pDef->pChild;
@@ -1507,25 +1469,23 @@ class IndraScheme {
             for (auto var_name : localNames) {
                 pInp = pInp->pNext;
 
-                ISAtom *pT = new ISAtom(*pInp);
+                ISAtom *pT = eval(pInp, local_symbols);
                 pT->pNext = nullptr;
                 ISAtom *pCurVar = gca(pT);
                 delete pT;
-                function_arguments[var_name] = pCurVar;
+                set_local_symbol(var_name, pCurVar, local_symbols);
             }
-            p = eval(pDef->pNext, function_arguments);
-            for (auto v : function_arguments) {
-                deleteList(v.second);
-            }
-            deleteList(pRes);
+            p = eval(pDef->pNext, local_symbols);
+            pop_local_symbols(local_symbols);
+            deleteList(pRes, "eval_func");
             return p;
         } else {
-            // can't eval
+            cout << "undefined function! " << pisa->vals << endl;
             return copyList(pisa);
         }
     }
 
-    ISAtom *eval(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols, bool func_only = false) {
+    ISAtom *eval(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols, bool func_only = false) {
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *pN, *pRet;  //, *pReti;
 
@@ -1533,12 +1493,12 @@ class IndraScheme {
         switch (pisa->t) {
         case ISAtom::TokType::QUOTE:
             pRet = copyList(pN);
-            deleteList(pisa);
+            deleteList(pisa, "eval 1");
             return pRet;
             break;
         case ISAtom::TokType::BRANCH:
             pRet = eval(pisa->pChild, local_symbols, true);
-            deleteList(pisa);
+            deleteList(pisa, "eval 2");
             return pRet;
             break;
         case ISAtom::TokType::SYMBOL:
@@ -1553,12 +1513,12 @@ class IndraScheme {
                 pRet->t = ISAtom::TokType::ERROR;
                 pRet->vals = "Undefined function: " + pisa->vals;
             }
-            deleteList(pisa);
+            deleteList(pisa, "eval 3");
             return pRet;
             break;
         case ISAtom::TokType::ERROR:
             pRet = pisa;
-            deleteList(pisa);
+            deleteList(pisa, "eval 4");
             return pRet;
             break;
         default:
@@ -1566,7 +1526,7 @@ class IndraScheme {
                 pRet = gca();  // XXX That will loose mem! (Maybe insert error into chain?)
                 pRet->t = ISAtom::TokType::ERROR;
                 pRet->vals = "Undefined expression: " + pisa->str();
-                deleteList(pisa);
+                deleteList(pisa, "eval 5");
                 return pRet;
             } else {
                 pRet = pisa;
@@ -1576,7 +1536,7 @@ class IndraScheme {
         }
     }
 
-    ISAtom *chainEval(const ISAtom *pisa_o, map<string, ISAtom *> &local_symbols) {
+    ISAtom *chainEval(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
         // ISAtom *p = gca(*pisa);  // XXX
         // ISAtom *pn = gca(*p);    // XXX
         size_t start_index = gc_size();
@@ -1593,12 +1553,10 @@ class IndraScheme {
         pAllocs.push_back(pisa);
         while (p) {
             if (p->t == ISAtom::TokType::NIL) {
-                // deleteList(p);
                 break;
             }
             pn = p->pNext;
-            p->pNext = nullptr;  // gca();  // nullptr;
-            // pAllocs.push_back(p->pNext);
+            p->pNext = nullptr;
             switch (p->t) {
             case ISAtom::TokType::QUOTE:
                 if (is_quote) {
@@ -1609,12 +1567,6 @@ class IndraScheme {
                     pCEi = nullptr;  // copyList(p->pNext);  // nullptr;
                     is_quote = true;
                 }
-                break;
-            case ISAtom::TokType::NIL:
-                cout << "Shouldn't be NIL here?" << endl;
-                is_quote = false;
-                pCEi = gca();
-                pAllocs.push_back(pCEi);
                 break;
             case ISAtom::TokType::SYMBOL:
                 if (is_quote) {
@@ -1636,37 +1588,35 @@ class IndraScheme {
                 break;
             default:
                 is_quote = false;
-                // ISAtom *pT = new ISAtom(*p);
-                pCEi = gca(p);  //(pT);
-                // delete pT;
-                //  cout << "PR: " << tokTypeNames[p->t] << " ";
-                //  print(pCEi, local_symbols, ISAtom::DecorType::UNICODE, true);
+                pCEi = gca(p);
+                    for (auto p : pAllocs) {
+                        if (p == pCEi) {
+                            cout << "It's already in!" << endl;
+                        }}
                 pAllocs.push_back(pCEi);
                 break;
             }
-            // p->pNext = pn;
+            p->pNext = pn;
             p = pn;
             if (pCEi) {
-                // cout << "atom" << endl;
                 ISAtom *pT = new ISAtom(*pCEi);
                 if (pCEi->pChild) pT->pChild = copyList(pCEi->pChild);
-                deleteList(pCEi);
                 if (!pCE) {
                     pCE = copyList(pT);
-                    pAllocs.push_back(pCERes);
                     pCERes = pCE;
+                    //pAllocs.push_back(pCERes);
                 } else {
-                    // pAllocs.push_back(pCE->pNext);
                     pCE->pNext = copyList(pT);
                     pCE = pCE->pNext;
-                    // pCE->pNext = gca();
-                    // pAllocs.push_back(pCE->pNext);
                 }
-                deleteList(pT);
+                if (pT->pChild) deleteList(pT, "chainEval 3");
+                delete pT;
             }
         }
+        int n=0;
         for (auto p : pAllocs) {
-            deleteList(p);
+            deleteList(p, "chainEval 4-"+std::to_string(n));
+            ++n;
         }
         // cout << "LOCAL[" << start_index << "] [" << gc_size() << "]" << endl;
         // gc(pCERes, local_symbols, start_index);
