@@ -1106,13 +1106,15 @@ class IndraScheme {
             bool bUpd=false;
         for (int in = (int)len - 1; in >= 0; in--) {
             if (local_symbols[in].find(varname) != local_symbols[in].end()) {
+                /*
                 cout << "update " << varname << " from ";
                 print(local_symbols[in][varname], local_symbols, ISAtom::DecorType::UNICODE, true);
                 cout << " to ";
+                 */
                 deleteList(local_symbols[in][varname], "Set! 1");
                 local_symbols[in][varname] = copyList(newVal);
-                print(local_symbols[in][varname], local_symbols, ISAtom::DecorType::UNICODE, true);
-                cout << endl;
+                // print(local_symbols[in][varname], local_symbols, ISAtom::DecorType::UNICODE, true);
+                // cout << endl;
                 bUpd=true;
                 break;
             }
@@ -1500,16 +1502,16 @@ class IndraScheme {
             const ISAtom *pInp = pisa;
             for (auto var_name : localNames) {
                 pInp = pInp->pNext;
-                
+                /*
                 cout << "Eval param ";
                 print(pInp, local_symbols, ISAtom::DecorType::UNICODE, true);
-                
+                */
                 ISAtom *pT = eval(pInp, local_symbols);
-                
+                /*
                 cout << " to ";
                 print(pT, local_symbols, ISAtom::DecorType::UNICODE, true);
                 cout << endl;
-                
+                */
                 // pT->pNext = nullptr;
                 set_local_symbol(var_name, pT, local_symbols);
                 deleteList(pT, "func_eval set vars");
@@ -1617,7 +1619,7 @@ class IndraScheme {
                     pCEi = copyList(p);
                     is_quote = false;
                 } else {
-                    pCEi = eval(p, local_symbols, true);
+                    pCEi = eval(p->pChild, local_symbols, true);
                 }
                 pAllocs.push_back(pCEi);
                 break;
@@ -1625,10 +1627,6 @@ class IndraScheme {
                 is_quote = false;
                 pCEi = gca(p);
                 if (p->pChild) pCEi->pChild = copyList(p->pChild);
-                for (auto p : pAllocs) {
-                    if (p == pCEi) {
-                        cout << "It's already in!" << endl;
-                    }}
                 pAllocs.push_back(pCEi);
                 break;
             }
@@ -1639,7 +1637,11 @@ class IndraScheme {
                     if (pCE) deleteList(pCE, "chain 1");
                     pCE= pCEi;
                 } else {
-                     if (pCEi->pNext) {cout << "pCEi->pNext shouldn't be set! [check quote case]" << endl; }
+                    if (pCEi->pNext) {
+                        deleteList(pCEi->pNext, "relics from BRANCH eval");
+                        pCEi->pNext=nullptr;
+                        // cout << "pCEi->pNext shouldn't be set! [check quote case]" << endl;
+                    }
                      if (!pCE) {
                          pCE_c = copyList(pCEi);
                          pCE = pCE_c;
