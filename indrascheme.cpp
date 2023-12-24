@@ -185,13 +185,11 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
 
         std::cout << "Eval dt: "
                   << std::chrono::duration<double, std::nano>(diff).count()
-                  << " ns" << endl
-                  << "Stacksize 1: " << ins.gc_size() << endl;
-
+                  << " ns, ss1: " << ins.gc_size();
         ins.deleteList(pisa_res, "repl 1");
-        cout << "Stacksize 2: " << ins.gc_size() << endl;
+        cout << ", ss2: " << ins.gc_size();
         ins.deleteList(pisa, "repl 2");
-        cout << "Stacksize 3: " << ins.gc_size() << endl;
+        cout << ", ss3: " << ins.gc_size() << endl;
 
         bool showDebris = true;
         if (showDebris) {

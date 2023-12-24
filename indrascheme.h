@@ -1540,7 +1540,7 @@ class IndraScheme {
         // ISAtom *p = gca(*pisa);  // XXX
         // ISAtom *pn = gca(*p);    // XXX
         size_t start_index = gc_size();
-
+        
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *p = pisa, *pn;  //  *pn, *pRes, *pPrev, *pCur;
         // pRes = pisa;
@@ -1603,7 +1603,9 @@ class IndraScheme {
                 if (pCEi->pChild) pT->pChild = copyList(pCEi->pChild);
                 if (!pCE) {
                     pCE = copyList(pT);
+                    deleteList(pCERes, "ReplNil in chainEval");
                     pCERes = pCE;
+                    
                     //pAllocs.push_back(pCERes);
                 } else {
                     pCE->pNext = copyList(pT);
@@ -1618,7 +1620,7 @@ class IndraScheme {
             deleteList(p, "chainEval 4-"+std::to_string(n));
             ++n;
         }
-        // cout << "LOCAL[" << start_index << "] [" << gc_size() << "]" << endl;
+        cout << "LOCAL[" << start_index << "] [" << gc_size() << "]" << endl;
         // gc(pCERes, local_symbols, start_index);
         return pCERes;
     }
