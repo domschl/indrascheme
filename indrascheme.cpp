@@ -194,7 +194,7 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
         bool showDebris = true;
         if (showDebris) {
             for (auto p : ins.gctr) {
-                cout << "Debris: " << p.first << ", " << p.second << " " << ins.tokTypeNames[p.first->t] << " ";
+                cout << "Debris: " << p.first <<  " " << ins.tokTypeNames[p.first->t] << " ";
                 ins.print(p.first, lsyms, decor, true);
                 cout << endl;
             }
