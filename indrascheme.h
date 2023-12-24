@@ -129,6 +129,7 @@ class IndraScheme {
     map<string, ISAtom *> funcs;
     vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "Branch"};
     map<ISAtom *, size_t> gctr;
+    bool memDbg = false;
 
     IndraScheme() {
         for (auto cm_op : "+-*/%") {
@@ -176,14 +177,16 @@ class IndraScheme {
         if (!pisa) return;
         auto pos = gctr.find(pisa);
         if (pos == gctr.end()) {
-            cout << "Trying to delete unaccounted allocation at " << context << " of: " << pisa << ", ";
-            vector<map<string, ISAtom *>> lh;
-            lh.push_back({});
-            print(pisa, lh, ISAtom::DecorType::UNICODE, true);
-            cout << endl;
+            if (memDbg) {
+                cout << "Trying to delete unaccounted allocation at " << context << " of: " << pisa << ", ";
+                vector<map<string, ISAtom *>> lh;
+                lh.push_back({});
+                print(pisa, lh, ISAtom::DecorType::UNICODE, true);
+                cout << endl;
             
             if (gctr_del_ctx.find(pisa) != gctr_del_ctx.end()) {
                 cout << "This has been deleted at context: " << gctr_del_ctx[pisa] << endl;
+            }
             }
             // delete pisa;
         } else {
@@ -530,11 +533,16 @@ class IndraScheme {
             pRes->vals = "Not enough operands for <" + m_op + "> operation";
             return pRes;
         }
-        const ISAtom *pl = pisa, *pr = pisa->pNext;
-        pl = chainEval(pl, local_symbols);
+        ISAtom *pl = gca((ISAtom *)pisa);
+        if (pisa->pChild) pl->pChild = copyList(pisa->pChild);
+        pAllocs.push_back(pl);
+        pl = eval(pl, local_symbols);
         pAllocs.push_back(pl);
 
-        pr = chainEval(pr, local_symbols);
+        ISAtom *pr = gca(pisa->pNext);
+        if (pisa->pNext->pChild) pr->pChild = copyList(pisa->pNext->pChild);
+        pAllocs.push_back(pr);
+        pr = eval(pr, local_symbols);
         pAllocs.push_back(pr);
 
         if (pl->t != pr->t) {
@@ -700,7 +708,7 @@ class IndraScheme {
         }
         vector<ISAtom *> pAllocs;
         while (p != nullptr) {
-            p = chainEval(p, local_symbols);
+            p = chainEval(p, local_symbols, true);
             pAllocs.push_back(p);
             // p->pNext = pn;
             if (p->t == ISAtom::TokType::INT) {
@@ -942,7 +950,7 @@ class IndraScheme {
                 symbols[pN->vals] = copyList(pV, false);
                 // gctr[symbols[pN->vals]] = gctr[symbols[pN->vals]] + 1;
             } else {
-                ISAtom *pT = chainEval(pV, local_symbols);
+                ISAtom *pT = chainEval(pV, local_symbols, true);
                 symbols[pN->vals] = copyList(pT, false);
                 deleteList(pT, "makeDefine 1");
                 // gctr[symbols[pN->vals]] = gctr[symbols[pN->vals]] + 1;
@@ -1039,7 +1047,7 @@ class IndraScheme {
                 pAllocs.push_back(pSym);
                 // gctr[local_symbols[pName->vals]] = gctr[local_symbols[pName->vals]] + 1;
             } else {
-                ISAtom *pT = chainEval(pVal, local_symbols);
+                ISAtom *pT = chainEval(pVal, local_symbols, true);
                 ISAtom *pSym = copyList(pT, false);
                 set_local_symbol(pName->vals, pSym, local_symbols);
                 pAllocs.push_back(pSym);
@@ -1120,7 +1128,7 @@ class IndraScheme {
     }
 
     ISAtom *evalBegin(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
-        return chainEval(pisa, local_symbols);
+        return chainEval(pisa, local_symbols, false);
         }
 
     ISAtom *evalIf(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
@@ -1193,7 +1201,7 @@ class IndraScheme {
         ISAtom *pCalc = pL;
         while (pCR->val) {
             pL = copyList(pCalc);
-            pRes = chainEval(pL, local_symbols);
+            pRes = chainEval(pL, local_symbols, true);
             //while (pL && pL->t != ISAtom::TokType::NIL) {
             //    pN = pL->pNext;
             //    ISAtom *pLc = copyList(pL);
@@ -1219,7 +1227,7 @@ class IndraScheme {
             return pRes;
         }
         // ISAtom *pP = pisa;
-        ISAtom *pResS = chainEval(pisa, local_symbols);
+        ISAtom *pResS = chainEval(pisa, local_symbols, true);
         print(pResS, local_symbols, ISAtom::DecorType::NONE, false);
         return pResS;
     }
@@ -1234,9 +1242,9 @@ class IndraScheme {
         }
         ISAtom *pP = pisa;
 
-        ISAtom *pResS = chainEval(pP, local_symbols);
+        ISAtom *pResS = chainEval(pP, local_symbols, true);
         if (pResS->t == ISAtom::TokType::QUOTE) {
-            pResS = chainEval(copyList(pResS->pNext), local_symbols);
+            pResS = chainEval(copyList(pResS->pNext), local_symbols, true);
         }
 
         return pResS;
@@ -1393,7 +1401,7 @@ class IndraScheme {
         }
         if (cmd != "") {
             ISAtom *pisa_p = parse(cmd);
-            ISAtom *pisa_res = chainEval(pisa_p, local_symbols);
+            ISAtom *pisa_res = chainEval(pisa_p, local_symbols, false);
             deleteList(pisa, "evalLoad 3");
             deleteList(pisa_p, "evalLoad 4");
             deleteList(pRes, "evalLoad 5");
@@ -1568,12 +1576,12 @@ class IndraScheme {
         }
     }
 
-    ISAtom *chainEval(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
+    ISAtom *chainEval(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols, bool bChainResult) {
         size_t start_index = gc_size();
         
         ISAtom *pisa = copyList(pisa_o);
         ISAtom *p = pisa, *pn;  //  *pn, *pRes, *pPrev, *pCur;
-        ISAtom *pCE = nullptr, *pCEi;
+        ISAtom *pCE = nullptr, *pCEi, *pCE_c=nullptr;
         bool is_quote = false;
 
         vector<ISAtom *> pAllocs;
@@ -1627,26 +1635,22 @@ class IndraScheme {
             p->pNext = pn;
             p = pn;
             if (pCEi) {
-                if (pCE) deleteList(pCE, "chain 1");
-                pCE= pCEi;
-                /*
-                //ISAtom *pT = new ISAtom(*pCEi);
-                //ISAtom *pT = copyList(pCEi, local_symbols);
-                if (pCEi->pNext) {cout << "pCEi->pNext shouldn't be set! [check quote case]" << endl; }
-                // if (pCEi->pChild) pT->pChild = copyList(pCEi->pChild);
-                if (!pCE) {
-                    // pCE = copyList(pT);
-                    pCE = copyList(pCEi);
-                    deleteList(pCERes, "ReplNil in chainEval");
-                    pCERes = pCE;
+                if (!bChainResult) {
+                    if (pCE) deleteList(pCE, "chain 1");
+                    pCE= pCEi;
                 } else {
-                    // pCE->pNext = copyList(pT);
-                    pCE->pNext = copyList(pCEi);
-                    pCE = pCE->pNext;
+                     if (pCEi->pNext) {cout << "pCEi->pNext shouldn't be set! [check quote case]" << endl; }
+                     if (!pCE) {
+                         pCE_c = copyList(pCEi);
+                         pCE = pCE_c;
+                     } else {
+                         pCE_c->pNext = copyList(pCEi);
+                         pCE_c = pCE_c->pNext;
+                     }
+                     // if (pT->pChild) deleteList(pT->pChild, "chainEval 3");
+                     // delete pT;
+                    
                 }
-                // if (pT->pChild) deleteList(pT->pChild, "chainEval 3");
-                // delete pT;
-                 */
             }
         }
         int n=0;
