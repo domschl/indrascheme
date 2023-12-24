@@ -936,7 +936,7 @@ class IndraScheme {
                 ++n;
             }
             local_symbols.pop_back();
-            cout << "cur local sym-table len = " << local_symbols.size() << endl;
+            //cout << "cur local sym-table len = " << local_symbols.size() << endl;
         }
     }
 

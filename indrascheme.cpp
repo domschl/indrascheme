@@ -192,7 +192,7 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
         cout << "Stacksize 2: " << ins.gc_size() << endl;
         ins.deleteList(pisa, "repl 2");
         cout << "Stacksize 3: " << ins.gc_size() << endl;
-/*
+
         bool showDebris = true;
         if (showDebris) {
             for (auto p : ins.gctr) {
@@ -201,7 +201,7 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
                 cout << endl;
             }
         }
- */
+ 
         ins.gctr.clear(); // XXX! corpses alot!
         // ins.gc_clear(nullptr, lsyms);
     }
