@@ -1593,7 +1593,7 @@ class IndraScheme {
         pAllocs.push_back(pisa);
         while (p) {
             if (p->t == ISAtom::TokType::NIL) {
-                deleteList(p);
+                // deleteList(p);
                 break;
             }
             pn = p->pNext;
@@ -1644,6 +1644,7 @@ class IndraScheme {
                 pAllocs.push_back(pCEi);
                 break;
             }
+            // p->pNext = pn;
             p = pn;
             if (pCEi) {
                 // cout << "atom" << endl;
