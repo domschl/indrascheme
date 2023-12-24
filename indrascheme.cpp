@@ -191,7 +191,7 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
         ins.deleteList(pisa, "repl 2");
         cout << ", ss3: " << ins.gc_size() << endl;
 
-        bool showDebris = true;
+        bool showDebris = false;
         if (showDebris) {
             for (auto p : ins.gctr) {
                 cout << "Debris: " << p.first <<  " " << ins.tokTypeNames[p.first->t] << " ";
