@@ -148,7 +148,9 @@ class IndraScheme {
         inbuilts["if"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalIf(pisa, local_symbols); };
         inbuilts["while"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
         inbuilts["print"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
+        inbuilts["stringify"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalStringify(pisa, local_symbols); };
         inbuilts["load"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalLoad(pisa, local_symbols); };
+        inbuilts["parse"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalParse(pisa, local_symbols); };
         inbuilts["quote"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalQuote(pisa, local_symbols); };
         inbuilts["list"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listList(pisa, local_symbols); };
         inbuilts["cons"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCons(pisa, local_symbols); };
@@ -528,6 +530,26 @@ class IndraScheme {
             }
             print(pN, local_symbols, decor, bAutoSeparators);
         }
+    }
+
+    string stringify(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, ISAtom::DecorType decor, bool bAutoSeparators) {
+        string out = pisa->str(decor);
+        ISAtom *pN = pisa->pNext;
+        if (decor) {
+            if (is_inbuilt(pisa->vals) || is_defined_func(pisa->vals)) out = "ⓕ " + out;
+            if (is_defined_symbol(pisa->vals, local_symbols)) out = "ⓢ " + out;
+        }
+        if (pisa->pChild != nullptr) {
+            out += stringify(pisa->pChild, local_symbols, decor, bAutoSeparators);
+            out += ")";
+        }
+        if (pN != nullptr) {
+            if (bAutoSeparators && pN->t != ISAtom::TokType::QUOTE) {
+                if (pisa->t != ISAtom::TokType::QUOTE) out += " ";
+            }
+            out += stringify(pN, local_symbols, decor, bAutoSeparators);
+        }
+        return out;
     }
 
     ISAtom *cmp_2ops(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, string m_op) {
@@ -1245,6 +1267,23 @@ class IndraScheme {
         return pResS;
     }
 
+    ISAtom *evalStringify(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        // ISAtom *pisa = copyList(pisa_o);
+        if (getListLen(pisa) < 1) {
+            ISAtom *pRes = gca();
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'stringify' requires at least 1 operand: <expr> [<expr>]...";
+            return pRes;
+        }
+        ISAtom *pResS = chainEval(pisa, local_symbols, true);
+        string st = stringify(pResS, local_symbols, ISAtom::DecorType::NONE, true);
+        deleteList(pResS, "evalStringify 1");
+        ISAtom *pRes = gca();
+        pRes->t = ISAtom::TokType::STRING;
+        pRes->vals = st;
+        return pRes;
+    }
+
     ISAtom *evalQuote(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = copyList(pisa);
         return pRes;
@@ -1386,6 +1425,36 @@ class IndraScheme {
         deleteList(pRes, "cdr 3");
         deleteList(pls, "cdr 4");
         return pCdr;
+    }
+
+    ISAtom *evalParse(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        if (getListLen(pisa) != 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'parse' requires one operand that is parsed as expression: got " + std::to_string(getListLen(pisa));
+            return pRes;
+        }
+        ISAtom *pP = chainEval(pisa, local_symbols, true);
+        if (pP->t != ISAtom::TokType::STRING) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'parse' requires a string to be parsed as parameter";
+            return pRes;
+        }
+        string cmd = pP->vals;
+        deleteList(pP, "EvalParse 0");
+        cmd += " ";
+
+        if (cmd != "") {
+            int lvl = 0;
+            ISAtom *pisa_p = parse(cmd, nullptr, lvl);
+            ISAtom *pisa_res = chainEval(pisa_p, local_symbols, true);
+            deleteList(pisa_p, "evalParse 1");
+            deleteList(pRes, "evalParse 2");
+            return pisa_res;
+        } else {
+            pRes->t = ISAtom::TokType::NIL;
+            return pRes;
+        }
     }
 
     ISAtom *evalLoad(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
