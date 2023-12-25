@@ -176,12 +176,12 @@ class IndraScheme {
 
     map<ISAtom *, string> gctr_del_ctx;
 
-    void gcd(ISAtom *pisa, string context) {
+    void gcd(ISAtom *pisa, string context, bool bUnregistered = false) {
         // XXX DOES NOT DELETE!
         if (!pisa) return;
         auto pos = gctr.find(pisa);
         if (pos == gctr.end()) {
-            if (memDbg) {
+            if (memDbg && !bUnregistered) {
                 cout << "Trying to delete unaccounted allocation at " << context << " of: " << pisa << ", ";
                 vector<map<string, ISAtom *>> lh;
                 lh.push_back({});
@@ -191,8 +191,9 @@ class IndraScheme {
                 if (gctr_del_ctx.find(pisa) != gctr_del_ctx.end()) {
                     cout << "This has been deleted at context: " << gctr_del_ctx[pisa] << endl;
                 }
+            } else {
+                delete pisa;
             }
-            // delete pisa;
         } else {
             gctr_del_ctx[pisa] = context;
             // cout << "DELETE: " << context  << endl;
@@ -231,11 +232,11 @@ class IndraScheme {
         return c;
     }
 
-    void deleteList(ISAtom *pisa, string context) {
+    void deleteList(ISAtom *pisa, string context, bool bUnregistered = false) {
         if (pisa == nullptr) return;
-        deleteList(pisa->pChild, context + "_C");
-        deleteList(pisa->pNext, context + "_N");
-        gcd(pisa, context);
+        deleteList(pisa->pChild, context + "_C", bUnregistered);
+        deleteList(pisa->pNext, context + "_N", bUnregistered);
+        gcd(pisa, context, bUnregistered);
     }
 
     bool is_int(string token, bool nat = false) {
@@ -952,6 +953,11 @@ class IndraScheme {
         return true;
     }
 
+    bool is_defined_global_symbol(const string name) {
+        if (symbols.find(name) == symbols.end()) return false;
+        return true;
+    }
+
     bool is_defined_func(string name) {
         if (funcs.find(name) == funcs.end()) return false;
         return true;
@@ -1023,6 +1029,26 @@ class IndraScheme {
             pRes->vals = "'define' requires symbol as first operand (name)";
             return pRes;
             break;
+        }
+    }
+
+    void deleteDefine(string &name) {
+        if (is_defined_func(name)) {
+            deleteList(funcs[name], "DeleteFuncDefine " + name, true);
+        }
+        if (is_defined_global_symbol(name)) {
+            deleteList(symbols[name], "DeleteSymDefine " + name, true);
+        }
+    }
+
+    void deleteAllDefines() {
+        for (auto sp : symbols) {
+            string name = sp.first;
+            deleteDefine(name);
+        }
+        for (auto sp : funcs) {
+            string name = sp.first;
+            deleteDefine(name);
         }
     }
 
@@ -1292,12 +1318,17 @@ class IndraScheme {
             pRes->vals = "'listfunc' requires at least 1 operand: <expr> [<expr>]...";
             return pRes;
         }
-        ISAtom *pP = chainEval(pisa, local_symbols, true);
-        if (pP->t != ISAtom::TokType::STRING) {
-            pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'listfunc' requires a string that is a function name";
-            deleteList(pP, "Listfunc 0");
-            return pRes;
+        ISAtom *pP;
+        if (pisa->t == ISAtom::TokType::STRING || pisa->t == ISAtom::TokType::SYMBOL) {
+            pP = copyList(pisa);
+        } else {
+            pP = chainEval(pisa, local_symbols, true);
+            if (pP->t != ISAtom::TokType::STRING && pP->t != ISAtom::TokType::SYMBOL) {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "'listfunc' requires a string that is a function name";
+                deleteList(pP, "Listfunc 0");
+                return pRes;
+            }
         }
         string funcname = pP->vals;
         deleteList(pP, "Listfunc 1");
@@ -1334,14 +1365,14 @@ class IndraScheme {
         ISAtom *pResS_r = chainEval(pResS, local_symbols, true);
         deleteList(pResS, "evalEval 1");
         pResS = pResS_r;
-
+        /*
         cout << endl
              << "pre-eval: ";
         print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
         cout << " -> after: >";
         print(pResS, local_symbols, ISAtom::DecorType::UNICODE, true);
         cout << "<" << endl;
-
+        */
         return pResS;
     }
 

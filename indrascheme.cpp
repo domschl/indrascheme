@@ -166,6 +166,7 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
             inp = charReader(prompt, &bq, term);
             cmd += inp + "\n";
             if (bq || cmd == "(quit)\n") {
+                ins.deleteAllDefines();
                 return;
             }
             // break;
@@ -203,7 +204,7 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
             }
         }
 
-        ins.gctr.clear();  // XXX! corpses alot!
+        // ins.gctr.clear();  // XXX! corpses alot!
         // ins.gc_clear(nullptr, lsyms);
     }
 }
