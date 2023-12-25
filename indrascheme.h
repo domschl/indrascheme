@@ -192,7 +192,7 @@ class IndraScheme {
         } else {
             gctr_del_ctx[pisa] = context;
             // cout << "DELETE: " << context  << endl;
-            // delete pisa;
+            delete pisa;
             gctr.erase(pos);
         }
     }
