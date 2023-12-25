@@ -26,7 +26,7 @@ bool initCharReader(struct termios *pTermSaved, string term) {
     tcgetattr(fileno(stdin), &t);
     *pTermSaved = t;
 
-        t.c_lflag &= (~ICANON & ~ECHO);
+    t.c_lflag &= (~ICANON & ~ECHO);
     t.c_cc[VTIME] = 0;
     t.c_cc[VMIN] = 1;
     if (tcsetattr(fileno(stdin), TCSANOW, &t) < 0) {
@@ -166,8 +166,9 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
             }
             break;
         }
+        cout << endl;
         vector<map<string, ISAtom *>> lsyms;
-        lsyms.push_back(map<string, ISAtom*>{});
+        lsyms.push_back(map<string, ISAtom *>{});
         // cout << "GLOBAL: ";
         // ins.gc(nullptr, ls, 0);
         ISAtom *pisa = ins.parse(cmd);
@@ -191,16 +192,16 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
         ins.deleteList(pisa, "repl 2");
         cout << ", ss3: " << ins.gc_size() << endl;
 
-        bool showDebris = false;
+        bool showDebris = true;
         if (showDebris) {
             for (auto p : ins.gctr) {
-                cout << "Debris: " << p.first <<  " " << ins.tokTypeNames[p.first->t] << " ";
+                cout << "Debris: " << p.first << " " << ins.tokTypeNames[p.first->t] << " ";
                 ins.print(p.first, lsyms, decor, true);
                 cout << endl;
             }
         }
- 
-        ins.gctr.clear(); // XXX! corpses alot!
+
+        ins.gctr.clear();  // XXX! corpses alot!
         // ins.gc_clear(nullptr, lsyms);
     }
 }
@@ -208,7 +209,7 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
 int main(int argc, char *argv[]) {
     const char *szTerm = std::getenv("TERM");
     string prompt, prompt2;
-    if (!szTerm) szTerm="Apple";
+    if (!szTerm) szTerm = "Apple";
     string term(szTerm);
     bool bUnicode = true;
     cout << "Indrascheme starting, " << szTerm << endl;
