@@ -149,6 +149,7 @@ class IndraScheme {
         inbuilts["while"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
         inbuilts["print"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
         inbuilts["load"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalLoad(pisa, local_symbols); };
+        inbuilts["quote"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalQuote(pisa, local_symbols); };
         inbuilts["list"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listList(pisa, local_symbols); };
         inbuilts["cons"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCons(pisa, local_symbols); };
         inbuilts["car"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCar(pisa, local_symbols); };
@@ -398,7 +399,7 @@ class IndraScheme {
                     }
                     state = COMMENT;
                     break;
-                case '\'':
+                case '\'':  // Quote
                     if (curSymbol.length() == 0) {
                         curSymbol += c;
                         pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
@@ -1244,6 +1245,11 @@ class IndraScheme {
         return pResS;
     }
 
+    ISAtom *evalQuote(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = copyList(pisa);
+        return pRes;
+    }
+
     ISAtom *evalEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         if (getListLen(pisa) < 1) {
@@ -1279,13 +1285,11 @@ class IndraScheme {
         ISAtom *pStart;
         ISAtom *pRes = gca();
         pStart = pRes;
-        pRes->t = ISAtom::TokType::QUOTE;
-        pRes->pNext = gca();
-        pRes = pRes->pNext;
+        // pRes->t = ISAtom::TokType::QUOTE;
+        // pRes->pNext = gca();
+        // pRes = pRes->pNext;
         pRes->t = ISAtom::TokType::BRANCH;
         pRes->pChild = copyList(pisa);
-        // print(pStart, local_symbols, ISAtom::DecorType::UNICODE, true);
-        // cout << endl;
         return pStart;
     }
 
@@ -1297,82 +1301,91 @@ class IndraScheme {
             pRes->vals = "'cons' requires two args";
             return pRes;
         }
-        ISAtom *c1 = (ISAtom *)pisa;
-        ISAtom *c2 = eval(pisa->pNext, local_symbols, true);
-        if (c2->t == ISAtom::TokType::QUOTE) {
-            ISAtom *c2_n = copyList(c2->pNext);
-            deleteList(c2, "listCons 1");
-            c2 = c2_n;
-        }
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        ISAtom *c1 = gca(pls);
+        if (pls->pChild) c1->pChild = copyList(pls->pChild);
+
+        ISAtom *c2 = copyList(pls->pNext);
+        deleteList(pls, "listCons 0");
+        // if (c2->t == ISAtom::TokType::QUOTE) {
+        //     ISAtom *c2_n = copyList(c2->pNext);
+        //     deleteList(c2, "listCons 1");
+        //     c2 = c2_n;
+        // }
         if (c2->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'cons' 2nd arg needs to eval to list (e.g. quoted list)";
             deleteList(c2, "listCons 2");
+            deleteList(c1, "listCons 2.1");
             return pRes;
         }
-        pRes->t = ISAtom::TokType::QUOTE;
-        pRes->pNext = gca();
-        pRes = pRes->pNext;
+        // pRes->t = ISAtom::TokType::QUOTE;
+        // pRes->pNext = gca();
+        // pRes = pRes->pNext;
         pRes->t = ISAtom::TokType::BRANCH;
         pRes->pChild = gca(c1);
-        if (c1->pChild) pRes->pChild->pChild = copyList(c1->pChild);
         pRes = pRes->pChild;
-        pisa = c2->pChild;
-        while (pisa) {
-            pRes->pNext = gca(pisa);
-            if (pisa->pChild) pRes->pNext->pChild = copyList(pisa->pChild);
-            pRes = pRes->pNext;
-            pisa = pisa->pNext;
-        }
+        if (c1->pChild) pRes->pChild = copyList(c1->pChild);
+        pRes->pNext = copyList(c2->pChild);
+        deleteList(c2, "cons 3");
+        deleteList(c1, "cons 3.1");
+        // pisa = c2->pChild;
+        // while (pisa) {
+        //     pRes->pNext = gca(pisa);
+        //     if (pisa->pChild) pRes->pNext->pChild = copyList(pisa->pChild);
+        //     pRes = pRes->pNext;
+        //     pisa = pisa->pNext;
+        // }
         return pStart;
     }
 
-    ISAtom *listCar(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
-        ISAtom *pisa = copyList(pisa_o);
+    ISAtom *listCar(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         if (getListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'car' requires one list arg";
             return pRes;
         }
-        ISAtom *pC = pisa;
-        if (pC->t == ISAtom::TokType::QUOTE)
-            pC = pC->pNext;
-        else {
-            pC = eval(pC, local_symbols);
-            if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
-        }
-        if (pC->t == ISAtom::TokType::BRANCH)
-            pC = pC->pChild;
-        else {
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (pls->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'car' requires one list arg";
+            pRes->vals = "'car' requires one arg as list";
+            deleteList(pls, "car 1");
             return pRes;
         }
-        pRes = gca(pC);
-        if (pC->pChild) pRes->pChild = copyList(pC->pChild);
-        return pRes;
+        ISAtom *pCar = gca(pls->pChild);
+        if (pls->pChild->pChild) pCar->pChild = copyList(pls->pChild->pChild);
+        deleteList(pRes, "car 2");
+        deleteList(pls, "car 3");
+        return pCar;
     }
 
-    ISAtom *listCdr(const ISAtom *pisa_o, vector<map<string, ISAtom *>> &local_symbols) {
-        ISAtom *pisa = copyList(pisa_o);
+    ISAtom *listCdr(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         if (getListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'cdr' requires one list arg";
             return pRes;
         }
-        pRes = copyList(pisa);
-        ISAtom *pC = pRes;
-        if (pC->t == ISAtom::TokType::QUOTE) pC = pC->pNext;
-        if (pC->t == ISAtom::TokType::BRANCH) {
-            pC->pChild = pC->pChild->pNext;
-        } else {
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (pls->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'cdr' requires list as second arg";
+            pRes->vals = "'cdr' requires one arg as list";
+            deleteList(pls, "cdr 1");
             return pRes;
         }
-        return pRes;
+        if (!pls->pChild->pNext) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'cdr' requires one arg as non-empty list";
+            deleteList(pls, "cdr 2");
+            return pRes;
+        }
+        ISAtom *pCdr = gca();
+        pCdr->t = ISAtom::TokType::BRANCH;
+        pCdr->pChild = copyList(pls->pChild->pNext);
+        deleteList(pRes, "cdr 3");
+        deleteList(pls, "cdr 4");
+        return pCdr;
     }
 
     ISAtom *evalLoad(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
@@ -1621,11 +1634,6 @@ class IndraScheme {
                     if (pCE) deleteList(pCE, "chainEval not chain1");
                     pCE = copyList(pCEi);
                 } else {
-                    if (pCEi->pNext) {
-                        // deleteList(pCEi->pNext, "relics from BRANCH eval");
-                        pCEi->pNext = nullptr;
-                        // cout << "pCEi->pNext shouldn't be set! [check quote case]" << endl;
-                    }
                     if (!pCE) {
                         pCE_c = copyList(pCEi);
                         pCE = pCE_c;
@@ -1633,8 +1641,6 @@ class IndraScheme {
                         pCE_c->pNext = copyList(pCEi);
                         pCE_c = pCE_c->pNext;
                     }
-                    // if (pT->pChild) deleteList(pT->pChild, "chainEval 3");
-                    // delete pT;
                 }
             }
         }
