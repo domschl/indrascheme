@@ -349,7 +349,7 @@ class IndraScheme {
         return pNode->pNext;
     }
 
-    ISAtom *parse(string &input, ISAtom *pNode = nullptr, int level = 0) {
+    ISAtom *parse(string &input, ISAtom *pNode, int &level) {
         enum ParseState { START,
                           STRING,
                           COMMENT };
@@ -370,6 +370,7 @@ class IndraScheme {
 
         while (input.length() > 0 && !bError) {
             c = input[0];
+            int lvl;
             parsed += c;
             input = input.substr(1);
             switch (state) {
@@ -380,7 +381,8 @@ class IndraScheme {
                         pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
                     }
                     pCurNode->t = ISAtom::TokType::BRANCH;
-                    pCurNode->pChild = parse(input, nullptr, level + 1);
+                    lvl = level + 1;
+                    pCurNode->pChild = parse(input, nullptr, lvl);
                     pCurNode->pNext = gca();
                     pCurNode = pCurNode->pNext;
                     break;
@@ -495,13 +497,14 @@ class IndraScheme {
             errRes->vals = fullErr;
             return errRes;
         }
-        
         bool showParse = false;
         if (showParse) {
             vector<map<string, ISAtom *>> ls = {};
-            cout << "Parse: ";
-            print(pStart, ls, ISAtom::DecorType::UNICODE, true);
-            cout << endl;
+            if (pStart) {
+                cout << "Parse: (" << level << ") ";
+                print(pStart, ls, ISAtom::DecorType::UNICODE, true);
+                cout << endl;
+            }
         }
         return pStart;
     }
@@ -1399,7 +1402,8 @@ class IndraScheme {
             fclose(fp);
         }
         if (cmd != "") {
-            ISAtom *pisa_p = parse(cmd);
+            int lvl = 0;
+            ISAtom *pisa_p = parse(cmd, nullptr, lvl);
             ISAtom *pisa_res = chainEval(pisa_p, local_symbols, false);
             deleteList(pisa_p, "evalLoad 4");
             deleteList(pRes, "evalLoad 5");
@@ -1573,7 +1577,7 @@ class IndraScheme {
             pi = gca(p);
             if (p->pChild) pi->pChild = copyList(p->pChild);
             pAllocs.push_back(pi);
-            
+
             switch (pi->t) {
             case ISAtom::TokType::QUOTE:
                 if (is_quote) {
@@ -1618,7 +1622,7 @@ class IndraScheme {
                     pCE = copyList(pCEi);
                 } else {
                     if (pCEi->pNext) {
-                        //deleteList(pCEi->pNext, "relics from BRANCH eval");
+                        // deleteList(pCEi->pNext, "relics from BRANCH eval");
                         pCEi->pNext = nullptr;
                         // cout << "pCEi->pNext shouldn't be set! [check quote case]" << endl;
                     }

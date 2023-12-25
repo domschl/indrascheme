@@ -57,7 +57,7 @@ string charReader(string prompt, bool *pQuit, string term) {
     bool esc_mode = false;
     string esc_string = "";
     string inp = "";
-    string large_space = " "; //                                                                               ";  // XXX
+    string large_space = " ";  //                                                                               ";  // XXX
     std::cout << prompt;
 
     while (!done) {
@@ -154,25 +154,27 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
     else
         decor = ISAtom::DecorType::ASCII;
 
+    vector<map<string, ISAtom *>> lsyms;
+    lsyms.push_back(map<string, ISAtom *>{});
+    ISAtom *pisa;
+
+    cmd = "";
     while (true) {
-        cmd = "";
-        fst = true;
-        while (true) {
+        bool bComplete = false;
+        while (!bComplete) {
             bool bq = false;
             inp = charReader(prompt, &bq, term);
             cmd += inp + "\n";
             if (bq || cmd == "(quit)\n") {
                 return;
             }
-            break;
+            // break;
+            int lvl = 0;
+            pisa = ins.parse(cmd, nullptr, lvl);
+            if (pisa) {
+                bComplete = true;
+            }
         }
-        cout << endl;
-        vector<map<string, ISAtom *>> lsyms;
-        lsyms.push_back(map<string, ISAtom *>{});
-        // cout << "GLOBAL: ";
-        // ins.gc(nullptr, ls, 0);
-        ISAtom *pisa = ins.parse(cmd);
-
         // std::cout << std::endl;
         auto start = std::chrono::steady_clock::now();
         ISAtom *pisa_res = ins.chainEval(pisa, lsyms, true);
