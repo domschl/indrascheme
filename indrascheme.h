@@ -565,16 +565,15 @@ class IndraScheme {
             pRes->vals = "Not enough operands for <" + m_op + "> operation";
             return pRes;
         }
-        ISAtom *pl = gca((ISAtom *)pisa);
-        if (pisa->pChild) pl->pChild = copyList(pisa->pChild);
-        pAllocs.push_back(pl);
-        pl = eval(pl, local_symbols);
+        ISAtom *pev = chainEval(pisa, local_symbols, true);
+        pAllocs.push_back(pev);
+
+        ISAtom *pl = gca((ISAtom *)pev);
+        if (pev->pChild) pl->pChild = copyList(pev->pChild);
         pAllocs.push_back(pl);
 
-        ISAtom *pr = gca(pisa->pNext);
-        if (pisa->pNext->pChild) pr->pChild = copyList(pisa->pNext->pChild);
-        pAllocs.push_back(pr);
-        pr = eval(pr, local_symbols);
+        ISAtom *pr = gca(pev->pNext);
+        if (pev->pNext->pChild) pr->pChild = copyList(pev->pNext->pChild);
         pAllocs.push_back(pr);
 
         if (pl->t != pr->t) {
@@ -1319,18 +1318,29 @@ class IndraScheme {
     }
 
     ISAtom *evalEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
-        ISAtom *pRes = gca();
         if (getListLen(pisa) < 1) {
+            ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'eval' requires at least 1 operand: <expr> [<expr>]...";
             return pRes;
         }
-        ISAtom *pResS = chainEval(pisa, local_symbols, true);
-        if (pResS->t == ISAtom::TokType::QUOTE) {
-            ISAtom *pResS_r = chainEval(copyList(pResS->pNext), local_symbols, true);
-            deleteList(pResS, "evalEval 1");
-            pResS = pResS_r;
-        }
+        ISAtom *p;
+        if (pisa->t == ISAtom::TokType::QUOTE)
+            p = pisa->pNext;
+        else
+            p = (ISAtom *)pisa;
+
+        ISAtom *pResS = chainEval(p, local_symbols, true);
+        ISAtom *pResS_r = chainEval(pResS, local_symbols, true);
+        deleteList(pResS, "evalEval 1");
+        pResS = pResS_r;
+
+        cout << endl
+             << "pre-eval: ";
+        print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
+        cout << " -> after: >";
+        print(pResS, local_symbols, ISAtom::DecorType::UNICODE, true);
+        cout << "<" << endl;
 
         return pResS;
     }
