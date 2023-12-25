@@ -149,6 +149,7 @@ class IndraScheme {
         inbuilts["while"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
         inbuilts["print"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
         inbuilts["stringify"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalStringify(pisa, local_symbols); };
+        inbuilts["listfunc"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalListfunc(pisa, local_symbols); };
         inbuilts["load"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalLoad(pisa, local_symbols); };
         inbuilts["parse"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalParse(pisa, local_symbols); };
         inbuilts["quote"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalQuote(pisa, local_symbols); };
@@ -1284,6 +1285,34 @@ class IndraScheme {
         return pRes;
     }
 
+    ISAtom *evalListfunc(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        if (getListLen(pisa) < 1) {
+            ISAtom *pRes = gca();
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listfunc' requires at least 1 operand: <expr> [<expr>]...";
+            return pRes;
+        }
+        ISAtom *pP = chainEval(pisa, local_symbols, true);
+        if (pP->t != ISAtom::TokType::STRING) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listfunc' requires a string that is a function name";
+            deleteList(pP, "Listfunc 0");
+            return pRes;
+        }
+        string funcname = pP->vals;
+        deleteList(pP, "Listfunc 1");
+        if (!is_defined_func(funcname)) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listfunc' function >" + funcname + "< is not defined";
+            return pRes;
+        }
+        string listfunc = stringify(funcs[funcname], local_symbols, ISAtom::DecorType::NONE, true);
+        pRes->t = ISAtom::TokType::STRING;
+        pRes->vals = listfunc;
+        return pRes;
+    }
+
     ISAtom *evalQuote(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = copyList(pisa);
         return pRes;
@@ -1438,6 +1467,7 @@ class IndraScheme {
         if (pP->t != ISAtom::TokType::STRING) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'parse' requires a string to be parsed as parameter";
+            deleteList(pP, "evalParse 3");
             return pRes;
         }
         string cmd = pP->vals;
