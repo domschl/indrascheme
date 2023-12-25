@@ -57,7 +57,7 @@ string charReader(string prompt, bool *pQuit, string term) {
     bool esc_mode = false;
     string esc_string = "";
     string inp = "";
-    string large_space = "                                                                                ";  // XXX
+    string large_space = " "; //                                                                               ";  // XXX
     std::cout << prompt;
 
     while (!done) {

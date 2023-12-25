@@ -495,10 +495,14 @@ class IndraScheme {
             errRes->vals = fullErr;
             return errRes;
         }
-        vector<map<string, ISAtom *>> ls = {};
-        cout << "Parse: ";
-        print(pStart, ls, ISAtom::DecorType::UNICODE, true);
-        cout << endl;
+        
+        bool showParse = false;
+        if (showParse) {
+            vector<map<string, ISAtom *>> ls = {};
+            cout << "Parse: ";
+            print(pStart, ls, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
+        }
         return pStart;
     }
 
@@ -1111,7 +1115,7 @@ class IndraScheme {
         for (int in = (int)len - 1; in >= 0; in--) {
             if (local_symbols[in].find(varname) != local_symbols[in].end()) {
                 deleteList(local_symbols[in][varname], "Set! 1");
-                local_symbols[in][varname] = newVal;
+                local_symbols[in][varname] = copyList(newVal);
                 bUpd = true;
                 break;
             }
@@ -1222,8 +1226,8 @@ class IndraScheme {
 
     ISAtom *evalPrint(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         // ISAtom *pisa = copyList(pisa_o);
-        ISAtom *pRes = gca();
         if (getListLen(pisa) < 1) {
+            ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'print' requires at least 1 operand: <expr> [<expr>]...";
             return pRes;
@@ -1551,7 +1555,7 @@ class IndraScheme {
     ISAtom *chainEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool bChainResult) {
         size_t start_index = gc_size();
 
-        ISAtom *p = (ISAtom *)pisa, *pn;  //  *pn, *pRes, *pPrev, *pCur;
+        ISAtom *p = (ISAtom *)pisa, *pi, *pn;
         ISAtom *pCE = nullptr, *pCEi, *pCE_c = nullptr;
         bool is_quote = false;
 
@@ -1562,10 +1566,15 @@ class IndraScheme {
             }
             pn = p->pNext;
             p->pNext = nullptr;
-            switch (p->t) {
+
+            pi = gca(p);
+            if (p->pChild) pi->pChild = copyList(p->pChild);
+            pAllocs.push_back(pi);
+            
+            switch (pi->t) {
             case ISAtom::TokType::QUOTE:
                 if (is_quote) {
-                    pCEi = copyList(p);
+                    pCEi = copyList(pi);
                     pAllocs.push_back(pCEi);
                     is_quote = false;
                 } else {
@@ -1575,25 +1584,25 @@ class IndraScheme {
                 break;
             case ISAtom::TokType::SYMBOL:
                 if (is_quote) {
-                    pCEi = copyList(p);
+                    pCEi = copyList(pi);
                     is_quote = false;
                 } else {
-                    pCEi = eval_symbol(p, local_symbols);
+                    pCEi = eval_symbol(pi, local_symbols);
                 }
                 pAllocs.push_back(pCEi);
                 break;
             case ISAtom::TokType::BRANCH:
                 if (is_quote) {
-                    pCEi = copyList(p);
+                    pCEi = copyList(pi);
                     is_quote = false;
                 } else {
-                    pCEi = eval(p->pChild, local_symbols, true);
+                    pCEi = eval(pi->pChild, local_symbols, true);
                 }
                 pAllocs.push_back(pCEi);
                 break;
             default:
                 is_quote = false;
-                pCEi = gca(p);
+                pCEi = gca(pi);
                 if (p->pChild) pCEi->pChild = copyList(p->pChild);
                 pAllocs.push_back(pCEi);
                 break;
@@ -1602,11 +1611,10 @@ class IndraScheme {
             p = pn;
             if (pCEi) {
                 if (!bChainResult) {
-                    if (pCE) deleteList(pCE, "chain 1");
-                    pCE = pCEi;
+                    pCE = copyList(pCEi);
                 } else {
                     if (pCEi->pNext) {
-                        deleteList(pCEi->pNext, "relics from BRANCH eval");
+                        //deleteList(pCEi->pNext, "relics from BRANCH eval");
                         pCEi->pNext = nullptr;
                         // cout << "pCEi->pNext shouldn't be set! [check quote case]" << endl;
                     }
