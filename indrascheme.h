@@ -1221,6 +1221,7 @@ class IndraScheme {
         }
         deleteList(pC, "while 7");
         deleteList(pCR, "while 8");
+        deleteList(pRes, "while 9");
         return pLast;
     }
 
@@ -1235,6 +1236,8 @@ class IndraScheme {
         // ISAtom *pP = pisa;
         ISAtom *pResS = chainEval(pisa, local_symbols, true);
         print(pResS, local_symbols, ISAtom::DecorType::NONE, false);
+        deleteList(pResS, "evalPrint 1");
+        pResS = gca();
         return pResS;
     }
 
@@ -1611,6 +1614,7 @@ class IndraScheme {
             p = pn;
             if (pCEi) {
                 if (!bChainResult) {
+                    if (pCE) deleteList(pCE, "chainEval not chain1");
                     pCE = copyList(pCEi);
                 } else {
                     if (pCEi->pNext) {
