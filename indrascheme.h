@@ -158,6 +158,8 @@ class IndraScheme {
         inbuilts["car"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCar(pisa, local_symbols); };
         inbuilts["cdr"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCdr(pisa, local_symbols); };
         inbuilts["length"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listLen(pisa, local_symbols); };
+        inbuilts["append"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listAppend(pisa, local_symbols); };
+        inbuilts["reverse"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listReverse(pisa, local_symbols); };
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
     }
 
@@ -1668,6 +1670,124 @@ class IndraScheme {
         deleteList(pRes, "cdr 3");
         deleteList(pls, "cdr 4");
         return pCdr;
+    }
+
+    ISAtom *listAppend(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        if (getListLen(pisa) != 3) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listAppend' requires two args";
+            return pRes;
+        }
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (getListLen(pisa) != 3) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listAppend' (aft. eval) requires two args";
+            deleteList(pls, "listAppend 1");
+            return pRes;
+        }
+        if (pls->t != ISAtom::TokType::BRANCH) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listAppend' requires first arg to be a list";
+            deleteList(pls, "listAppend 2");
+            return pRes;
+        }
+
+        ISAtom *pIns = gca(pls->pNext);
+        if (pls->pNext->pChild) pIns->pChild = copyList(pls->pNext->pChild);
+
+        ISAtom *pApp = gca(pls);
+        if (pls->pChild) pApp->pChild = copyList(pls->pChild);
+
+        ISAtom *p = pApp->pChild;
+        ISAtom *pL = nullptr;
+        bool first = true;
+        bool ins = false;
+        while (p) {
+            if (p->t == ISAtom::TokType::NIL) {
+                if (first) {
+                    pApp->pChild = pIns;
+                    pIns->pNext = p;
+                    ins = true;
+                    break;
+                } else {
+                    pL->pNext = pIns;
+                    pIns->pNext = p;
+                    ins = true;
+                    break;
+                }
+            } else {
+                first = false;
+                pL = p;
+                p = p->pNext;
+            }
+        }
+
+        deleteList(pls, "listAppend 4");
+        if (!ins) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Append failed, cannot find terminating NIL of source-list";
+            deleteList(pApp, "no-nil-append");
+            return pRes;
+        }
+
+        deleteList(pRes, "listAppend 3");
+        return pApp;
+    }
+
+    ISAtom *listReverse(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        if (getListLen(pisa) != 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listReverse' requires one args";
+            return pRes;
+        }
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (getListLen(pisa) != 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listReverse' (aft. eval) requires one args";
+            return pRes;
+        }
+        if (pls->t != ISAtom::TokType::BRANCH) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listReverse' requires first arg to be a list";
+            deleteList(pls, "listReverse 2");
+            return pRes;
+        }
+        vector<ISAtom *> lst;
+        lst.push_back(pls->pChild);
+        ISAtom *p = pls->pChild;
+        while (p && p->pNext) {
+            lst.push_back(p->pNext);
+            p = p->pNext;
+        }
+        if (lst.size() == 0) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listReverse' invalid list size 0";
+            deleteList(pls, "listReverse 4");
+            return pRes;
+        }
+        p = nullptr;
+        if (lst[lst.size() - 1]->t != ISAtom::TokType::NIL) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'listReverse' NIL not found internal error";
+            deleteList(pls, "listReverse 3");
+            return pRes;
+        }
+        for (int i = lst.size() - 2; i >= 0; i--) {
+            if (i == lst.size() - 2) {
+                pls->pChild = lst[i];
+                p = pls->pChild;
+            } else {
+                p->pNext = lst[i];
+                p = p->pNext;
+            }
+            if (i == 0) {
+                p->pNext = lst[lst.size() - 1];
+            }
+        }
+        deleteList(pRes, "listAppend 3");
+        return pls;
     }
 
     ISAtom *evalParse(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
