@@ -161,6 +161,7 @@ class IndraScheme {
         inbuilts["append"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listAppend(pisa, local_symbols); };
         inbuilts["reverse"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listReverse(pisa, local_symbols); };
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
+        // inbuilts["lambda"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalLambda(pisa, local_symbols); };
         inbuilts["every"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEvery(pisa, local_symbols); };
     }
 
@@ -1976,11 +1977,21 @@ class IndraScheme {
         ISAtom *p, *pn;
         ISAtom *pRes = gca();
         local_symbols.push_back({});
-        // pDef = funcs[pisa->vals];
         ISAtom *pNa = pvars->pChild;  // pDef->pChild;
         vector<string> localNames;
         int n = 0;
         bool err = false;
+
+        cout << "InputData: ";
+        print(input_data, local_symbols, ISAtom::DecorType::UNICODE, true);
+        cout << endl;
+        cout << "pvars: ";
+        print(pvars, local_symbols, ISAtom::DecorType::UNICODE, true);
+        cout << endl;
+        cout << "pfunc: ";
+        print(pfunc, local_symbols, ISAtom::DecorType::UNICODE, true);
+        cout << endl;
+
         while (pNa && !err) {
             if (pNa->t == ISAtom::TokType::NIL) break;
             if (pNa->t == ISAtom::TokType::SYMBOL) {
@@ -1999,10 +2010,10 @@ class IndraScheme {
                 break;
             }
         }
-        if (getListLen(input_data) - 1 != n - 1) {
+        if (getListLen(input_data) - 1 != n - skipper) {
             err = true;
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "Lambda requires " + std::to_string(n - 1 + skipper) + " arguments, " + std::to_string(getListLen(input_data) - 1) + " given";
+            pRes->vals = "Lambda requires " + std::to_string(n - skipper) + " arguments, " + std::to_string(getListLen(input_data) - 1) + " given";
             pop_local_symbols(local_symbols);
             return pRes;
         }
@@ -2025,8 +2036,23 @@ class IndraScheme {
 
     ISAtom *eval_func(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (is_defined_func(pisa->vals)) {
-            ISAtom *pDef = funcs[pisa->vals];
+        string fun_name = pisa->vals;
+        if (!is_defined_func(fun_name)) {
+            if (is_defined_local_symbol(fun_name, local_symbols)) {
+                ISAtom *pSym = get_local_symbol(fun_name, local_symbols);
+                if (pSym->t == ISAtom::TokType::STRING || pSym->t == ISAtom::TokType::SYMBOL) {
+                    fun_name = pSym->vals;
+                    cout << "Funcname-resolve ->" << fun_name << endl;
+                } else {
+                    cout << fun_name << " resolved to wrong type!" << endl;
+                }
+                deleteList(pSym, "eval_func resolver");
+            } else {
+                cout << fun_name << " is no local symbol!" << endl;
+            }
+        }
+        if (is_defined_func(fun_name)) {
+            ISAtom *pDef = funcs[fun_name];
             ISAtom *pvars = gca(pDef);
             if (pDef->pChild) pvars->pChild = copyList(pDef->pChild);
             ISAtom *pfunc = pDef->pNext;
@@ -2092,8 +2118,7 @@ class IndraScheme {
         }
     }
 
-    ISAtom *
-    eval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool func_only = false) {
+    ISAtom *eval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool func_only = false) {
         ISAtom *pN, *pRet;  //, *pReti;
 
         ISAtom *p = (ISAtom *)pisa;
@@ -2105,7 +2130,14 @@ class IndraScheme {
             return pRet;
             break;
         case ISAtom::TokType::BRANCH:
-            pRet = eval(pisa->pChild, local_symbols, true);
+            if (pisa->pChild->vals == "lambda") {
+                ISAtom *pvars = gca(pisa->pChild->pNext);
+                if (pisa->pChild->pNext->pChild) pvars->pChild = copyList(pisa->pChild->pNext->pChild);
+                pRet = lambda_eval(pisa->pNext, local_symbols, pvars, pisa->pChild->pNext->pNext);
+                deleteList(pvars, "BRANCH-LAMBDA");
+            } else {
+                pRet = eval(pisa->pChild, local_symbols, true);
+            }
             return pRet;
             break;
         case ISAtom::TokType::SYMBOL:
@@ -2116,6 +2148,34 @@ class IndraScheme {
             } else if (!func_only && is_defined_symbol(pisa->vals, local_symbols)) {
                 pRet = eval_symbol(pisa, local_symbols);
             } else {
+                string fun_name = pisa->vals;
+                if (is_defined_symbol(fun_name, local_symbols)) {
+                    if (is_defined_local_symbol(fun_name, local_symbols)) {
+                        ISAtom *pSym = get_local_symbol(fun_name, local_symbols);
+                        if (pSym->t == ISAtom::TokType::STRING || pSym->t == ISAtom::TokType::SYMBOL) {
+                            fun_name = pSym->vals;
+                            cout << "Funcname-resolve ->" << fun_name << endl;
+                        } else {
+                            cout << fun_name << " resolved to wrong type!" << endl;
+                        }
+                        deleteList(pSym, "eval_func resolver");
+                    }
+                    if (is_defined_global_symbol(fun_name)) {
+                        ISAtom *pSym = copyList(symbols[fun_name]);
+                        if (pSym->t == ISAtom::TokType::STRING || pSym->t == ISAtom::TokType::SYMBOL) {
+                            fun_name = pSym->vals;
+                            cout << "Funcname-resolve ->" << fun_name << endl;
+                        } else {
+                            cout << fun_name << " resolved to wrong type!" << endl;
+                        }
+                        deleteList(pSym, "eval_func resolver");
+                    }
+                    if (is_inbuilt(fun_name)) {
+                        return pRet = inbuilts[fun_name](pisa->pNext, local_symbols);
+                    } else if (is_defined_func(pisa->vals)) {
+                        return pRet = eval_func(pisa, local_symbols);
+                    }
+                }
                 pRet = gca();
                 pRet->t = ISAtom::TokType::ERROR;
                 pRet->vals = "Undefined function: " + pisa->vals;
@@ -2141,7 +2201,8 @@ class IndraScheme {
         }
     }
 
-    ISAtom *chainEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool bChainResult) {
+    ISAtom *
+    chainEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool bChainResult) {
         size_t start_index = gc_size();
 
         ISAtom *p = (ISAtom *)pisa, *pi, *pn;
