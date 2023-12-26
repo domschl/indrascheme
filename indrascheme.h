@@ -741,6 +741,10 @@ class IndraScheme {
         vector<ISAtom *> pAllocs;
         while (p != nullptr) {
             p = chainEval(p, local_symbols, true);
+
+            print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
+
             pAllocs.push_back(p);
             // p->pNext = pn;
             if (p->t == ISAtom::TokType::INT) {
@@ -880,14 +884,17 @@ class IndraScheme {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Op: " + m_op + ", unhandled tokType: " + std::to_string(p->t);
                 if (p->t == ISAtom::TokType::ERROR) pRes->vals += ": " + p->vals;
+                break;
             }
         }
-        if (fl) {
+        if (fl) {  // XXX: better type switch/cases!
             pRes->t = ISAtom::TokType::FLOAT;
             pRes->valf = fres;
         } else {
-            pRes->t = ISAtom::TokType::INT;
-            pRes->val = res;
+            if (pRes->t != ISAtom::TokType::ERROR) {
+                pRes->t = ISAtom::TokType::INT;
+                pRes->val = res;
+            }
         }
         for (auto p : pAllocs) {
             deleteList(p, "math_ops 7");
@@ -1770,6 +1777,12 @@ class IndraScheme {
             p->pNext = pn;
             p = pn;
             if (pCEi) {
+                if (pCEi->t == ISAtom::TokType::ERROR) {
+                    if (pCE) deleteList(pCE, "Error on EvalChain");
+                    pCE = copyList(pCEi);
+                    break;
+                }
+
                 if (!bChainResult) {
                     if (pCE) deleteList(pCE, "chainEval not chain1");
                     pCE = copyList(pCEi);
