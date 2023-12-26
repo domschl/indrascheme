@@ -157,7 +157,7 @@ class IndraScheme {
         inbuilts["cons"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCons(pisa, local_symbols); };
         inbuilts["car"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCar(pisa, local_symbols); };
         inbuilts["cdr"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCdr(pisa, local_symbols); };
-        inbuilts["len"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listLen(pisa, local_symbols); };
+        inbuilts["length"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listLen(pisa, local_symbols); };
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
     }
 
