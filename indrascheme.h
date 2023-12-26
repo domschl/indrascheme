@@ -1917,63 +1917,128 @@ class IndraScheme {
         }
     }
 
+    ISAtom *lambda_eval(const ISAtom *input_data, vector<map<string, ISAtom *>> &local_symbols, const ISAtom *pvars, const ISAtom *pfunc, int skipper = 0) {
+        ISAtom *p, *pn;
+        ISAtom *pRes = gca();
+        local_symbols.push_back({});
+        // pDef = funcs[pisa->vals];
+        ISAtom *pNa = pvars->pChild;  // pDef->pChild;
+        vector<string> localNames;
+        int n = 0;
+        bool err = false;
+        while (pNa && !err) {
+            if (pNa->t == ISAtom::TokType::NIL) break;
+            if (pNa->t == ISAtom::TokType::SYMBOL) {
+                n = n + 1;
+                if (n > skipper) {
+                    localNames.push_back(pNa->vals);
+                    // cout << "localVar " << n - skipper << ": " << pNa->vals << endl;
+                }
+                pNa = pNa->pNext;
+            } else {
+                err = true;
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "'lambda' function requires symbols as operands, type " + tokTypeNames[pNa->t] + " is invalid, symbol required.";
+                pop_local_symbols(local_symbols);
+                return pRes;
+                break;
+            }
+        }
+        if (getListLen(input_data) - 1 != n - 1) {
+            err = true;
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Lambda requires " + std::to_string(n - 1 + skipper) + " arguments, " + std::to_string(getListLen(input_data) - 1) + " given";
+            pop_local_symbols(local_symbols);
+            return pRes;
+        }
+
+        ISAtom *pCurVar;
+        const ISAtom *pInp = input_data;
+        for (auto var_name : localNames) {
+            ISAtom *pT = eval(pInp, local_symbols);
+            // cout << "lambda var " << var_name << " = ";
+            // print(pT, local_symbols, ISAtom::DecorType::NONE, false);
+            // cout << endl;
+            set_local_symbol(var_name, pT, local_symbols);
+            pInp = pInp->pNext;
+        }
+        p = eval(pfunc, local_symbols);
+        pop_local_symbols(local_symbols);
+        deleteList(pRes, "lambda 1");
+        return p;
+    }
+
     ISAtom *eval_func(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         if (is_defined_func(pisa->vals)) {
-            ISAtom *p, *pn, *pDef;
-            local_symbols.push_back({});
-            pDef = funcs[pisa->vals];
-            ISAtom *pNa = pDef->pChild;
-            vector<string> localNames;
-            int n = 0;
-            bool err = false;
-            string func_name;
-            while (pNa && !err) {
-                if (pNa->t == ISAtom::TokType::NIL) break;
-                if (pNa->t == ISAtom::TokType::SYMBOL) {
-                    n = n + 1;
-                    if (n > 1) {
-                        localNames.push_back(pNa->vals);
-                        // cout << "localVar" << n-1 << ", " << pNa->vals << endl;
-                    } else {
-                        func_name = pNa->vals;
-                    }
-                    pNa = pNa->pNext;
-                } else {
-                    err = true;
-                    pRes->t = ISAtom::TokType::ERROR;
-                    pRes->vals = "'define' function requires symbol as first operand (name) and optional symbols identifying parameters, type " + tokTypeNames[pNa->t] + " is invalid, symbol required.";
-                    pop_local_symbols(local_symbols);
-                    return pRes;
-                    break;
-                }
-            }
-            if (getListLen(pisa) - 2 != n - 1) {  // Pisa: fun-name and nil: 2, n: fun-name: 1
-                err = true;
-                pRes->t = ISAtom::TokType::ERROR;
-                pRes->vals = "Function " + func_name + " requires " + std::to_string(n - 1) + " arguments, " + std::to_string(getListLen(pisa) - 2) + " given";
-                pop_local_symbols(local_symbols);
-                return pRes;
-            }
-            ISAtom *pCurVar;
-            const ISAtom *pInp = pisa;
-            for (auto var_name : localNames) {
-                pInp = pInp->pNext;
-                ISAtom *pT = eval(pInp, local_symbols);
-                set_local_symbol(var_name, pT, local_symbols);
-            }
-            p = eval(pDef->pNext, local_symbols);
-            pop_local_symbols(local_symbols);
-            deleteList(pRes, "eval_func");
+            ISAtom *pDef = funcs[pisa->vals];
+            ISAtom *pvars = gca(pDef);
+            if (pDef->pChild) pvars->pChild = copyList(pDef->pChild);
+            ISAtom *pfunc = pDef->pNext;
+            ISAtom *p = lambda_eval(pisa->pNext, local_symbols, pvars, pfunc, 1);
+            deleteList(pRes, "ev_func 1");
+            deleteList(pvars, "ev_func 2");
             return p;
-        } else {
+        }
+        /*
+
+                    ISAtom *p, *pn, *pDef;
+                    local_symbols.push_back({});
+                    pDef = funcs[pisa->vals];
+                    ISAtom *pNa = pDef->pChild;
+                    vector<string> localNames;
+                    int n = 0;
+                    bool err = false;
+                    string func_name;
+                    while (pNa && !err) {
+                        if (pNa->t == ISAtom::TokType::NIL) break;
+                        if (pNa->t == ISAtom::TokType::SYMBOL) {
+                            n = n + 1;
+                            if (n > 1) {
+                                localNames.push_back(pNa->vals);
+                                // cout << "localVar" << n-1 << ", " << pNa->vals << endl;
+                            } else {
+                                func_name = pNa->vals;
+                            }
+                            pNa = pNa->pNext;
+                        } else {
+                            err = true;
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "'define' function requires symbol as first operand (name) and optional symbols identifying parameters, type " + tokTypeNames[pNa->t] + " is invalid, symbol required.";
+                            pop_local_symbols(local_symbols);
+                            return pRes;
+                            break;
+                        }
+                    }
+                    if (getListLen(pisa) - 2 != n - 1) {  // Pisa: fun-name and nil: 2, n: fun-name: 1
+                        err = true;
+                        pRes->t = ISAtom::TokType::ERROR;
+                        pRes->vals = "Function " + func_name + " requires " + std::to_string(n - 1) + " arguments, " + std::to_string(getListLen(pisa) - 2) + " given";
+                        pop_local_symbols(local_symbols);
+                        return pRes;
+                    }
+                    ISAtom *pCurVar;
+                    const ISAtom *pInp = pisa;
+                    for (auto var_name : localNames) {
+                        pInp = pInp->pNext;
+                        ISAtom *pT = eval(pInp, local_symbols);
+                        set_local_symbol(var_name, pT, local_symbols);
+                    }
+                    p = eval(pDef->pNext, local_symbols);
+                    pop_local_symbols(local_symbols);
+                    deleteList(pRes, "eval_func");
+                    return p;
+    }
+                    */
+        else {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Undefined function >" + pisa->vals + "< Internal error.";
             return pRes;
         }
     }
 
-    ISAtom *eval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool func_only = false) {
+    ISAtom *
+    eval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool func_only = false) {
         ISAtom *pN, *pRet;  //, *pReti;
 
         ISAtom *p = (ISAtom *)pisa;
