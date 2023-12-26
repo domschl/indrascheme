@@ -176,7 +176,7 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
                 bComplete = true;
             }
         }
-        // std::cout << std::endl;
+        std::cout << std::endl;
         auto start = std::chrono::steady_clock::now();
         ISAtom *pisa_res = ins.chainEval(pisa, lsyms, true);
         cout << endl

@@ -161,6 +161,7 @@ class IndraScheme {
         inbuilts["append"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listAppend(pisa, local_symbols); };
         inbuilts["reverse"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listReverse(pisa, local_symbols); };
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
+        inbuilts["every"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEvery(pisa, local_symbols); };
     }
 
     ISAtom *gca(const ISAtom *src = nullptr, bool bRegister = true) {
@@ -1524,6 +1525,68 @@ class IndraScheme {
         return pRes;
     }
 
+    ISAtom *evalEvery(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        if (getListLen(pisa) < 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'evalEvery' requires at least 2 operands";
+            return pRes;
+        }
+
+        ISAtom *pL = eval(pisa->pNext, local_symbols);
+        if (pL->t != ISAtom::TokType::BRANCH) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'evalEvery' requires a list as 2nd operand";
+            deleteList(pL, "evalEvery 1");
+            return pRes;
+        }
+        ISAtom *p, *pFi, *pC, *pCn;
+        pC = gca();
+        pC->t = ISAtom::TokType::BRANCH;
+        pCn = pC;
+        bool first = true;
+
+        p = pL->pChild;
+        while (p && p->t != ISAtom::TokType::NIL) {
+            pFi = gca();
+            pFi->t = ISAtom::TokType::BRANCH;
+            pFi->pChild = gca(pisa);
+            if (pisa->pChild) pFi->pChild->pChild = copyList(pisa->pChild);
+            pFi->pChild->pNext = gca(p);
+            if (p->pChild) pFi->pChild->pNext->pChild = copyList(p->pChild);
+            pFi->pChild->pNext->pNext = gca();
+            pFi->pChild->pNext->pNext->t = ISAtom::TokType::NIL;
+            ISAtom *pR = eval(pFi, local_symbols);
+            if (first) {
+                // pCn->pChild = gca(pR);
+                // if (pR->pChild) pCn->pChild->pChild = copyList(pR->pChild);
+                // deleteList(pR, "evalEvery-Res1");
+                pCn->pChild = pR;
+
+                pCn = pCn->pChild;
+                first = false;
+            } else {
+                // pCn->pNext = gca(pR);
+                // if (pR->pChild) pCn->pNext->pChild = copyList(pR->pChild);
+                // deleteList(pR, "evalEvery-Res2");
+                pCn->pNext = pR;
+                pCn = pCn->pNext;
+            }
+            deleteList(pFi, "eval every 2");
+            p = p->pNext;
+        }
+        if (!first) {
+            // strange:
+            // pCn = gca();
+            // pCn->t = ISAtom::TokType::NIL;
+        } else {
+            pC->pChild = gca();
+        }
+        deleteList(pL, "eval every 3");
+        deleteList(pRes, "eval every 4");
+        return pC;
+    }
+
     ISAtom *evalEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         if (getListLen(pisa) < 1) {
             ISAtom *pRes = gca();
@@ -1541,14 +1604,6 @@ class IndraScheme {
         ISAtom *pResS_r = chainEval(pResS, local_symbols, true);
         deleteList(pResS, "evalEval 1");
         pResS = pResS_r;
-        /*
-        cout << endl
-             << "pre-eval: ";
-        print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
-        cout << " -> after: >";
-        print(pResS, local_symbols, ISAtom::DecorType::UNICODE, true);
-        cout << "<" << endl;
-        */
         return pResS;
     }
 
