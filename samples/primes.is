@@ -30,10 +30,10 @@
 
 (define (primes m) 
     (let ((m0 2) 
-        (cnt 0)) 
+        (pr '())) 
         (while (<= m0 m) 
             (if (isprime m0) 
-                (begin (set! cnt (+ cnt 1)) (print m0 " "))) 
+                (append pr m0))
             (set! m0 (+ m0 1))) 
-    cnt )
+    pr )
 )

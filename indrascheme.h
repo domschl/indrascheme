@@ -1159,13 +1159,13 @@ class IndraScheme {
                 return pRes;
             }
             if (pV->t == ISAtom::TokType::QUOTE) {
-                symbols[pN->vals] = copyList(pV, false);
-                // gctr[symbols[pN->vals]] = gctr[symbols[pN->vals]] + 1;
+                ISAtom *pT = gca(pV->pNext, false);
+                if (pV->pNext && pV->pNext->pChild) pT->pChild = copyList(pV->pNext->pChild, false);
+                symbols[pN->vals] = pT;
             } else {
                 ISAtom *pT = chainEval(pV, local_symbols, true);
                 symbols[pN->vals] = copyList(pT, false);
-                deleteList(pT, "makeDefine 1");
-                // gctr[symbols[pN->vals]] = gctr[symbols[pN->vals]] + 1;
+                deleteList(pT, "makeDefine 1");  // XXX only 2nd argument? See QUOTE case
             }
             deleteList(pRes, "makeDefine 2");
             return copyList(symbols[pN->vals]);
@@ -1274,7 +1274,8 @@ class IndraScheme {
             }
             ISAtom *pVal = pName->pNext;
             if (pVal->t == ISAtom::TokType::QUOTE) {
-                ISAtom *pSym = copyList(pVal);
+                ISAtom *pSym = gca(pVal->pNext);
+                if (pVal->pNext && pVal->pNext->pChild) pSym->pChild = copyList(pVal->pNext->pChild);
                 set_local_symbol(pName->vals, pSym, local_symbols);
                 // gctr[local_symbols[pName->vals]] = gctr[local_symbols[pName->vals]] + 1;
             } else {
