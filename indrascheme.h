@@ -1560,7 +1560,7 @@ class IndraScheme {
 
         if (getListLen(pls) != 1 || pls->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'len' requires or quoted list operand, len=" + std::to_string(getListLen(pls)) + ", type: " + tokTypeNames[pls->t];
+            pRes->vals = "'len' requires or quoted list operand, len=" + std::to_string(getListLen(pls)) + ", got type: " + tokTypeNames[pls->t];
             deleteList(pls, "listLen 1");
             return pRes;
         }
@@ -1574,11 +1574,15 @@ class IndraScheme {
         ISAtom *pStart;
         ISAtom *pRes = gca();
         pStart = pRes;
+
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+
         // pRes->t = ISAtom::TokType::QUOTE;
         // pRes->pNext = gca();
         // pRes = pRes->pNext;
         pRes->t = ISAtom::TokType::BRANCH;
-        pRes->pChild = copyList(pisa);
+        pRes->pChild = copyList(pls);
+        deleteList(pls, "listList 1");
         return pStart;
     }
 
@@ -1828,15 +1832,20 @@ class IndraScheme {
 
     ISAtom *evalLoad(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) != 2) {
+
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+
+        if (getListLen(pls) != 1) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'load' requires one string operand, a filename, got: " + std::to_string(getListLen(pisa));
+            deleteList(pls, "load 1");
             return pRes;
         }
-        ISAtom *pP = (ISAtom *)pisa;
+        ISAtom *pP = (ISAtom *)pls;
         if (pP->t != ISAtom::TokType::STRING) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'load' requires a string operand, a filename";
+            deleteList(pls, "load 2");
             return pRes;
         }
 
@@ -1858,10 +1867,12 @@ class IndraScheme {
             ISAtom *pisa_res = chainEval(pisa_p, local_symbols, false);
             deleteList(pisa_p, "evalLoad 4");
             deleteList(pRes, "evalLoad 5");
+            deleteList(pls, "evalLoad 5.1");
             return pisa_res;
         } else {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Could not read file: " + pisa->vals;
+            deleteList(pls, "evalLoad 5.2");
             return pRes;
         }
     }
