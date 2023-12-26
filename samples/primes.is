@@ -33,7 +33,7 @@
         (pr '())) 
         (while (<= m0 m) 
             (if (isprime m0) 
-                (append pr m0))
+                (set! pr (append pr m0)))
             (set! m0 (+ m0 1))) 
     pr )
 )

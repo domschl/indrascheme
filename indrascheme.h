@@ -1555,14 +1555,18 @@ class IndraScheme {
     ISAtom *listLen(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *p = (ISAtom *)pisa;
-        if (p->t == ISAtom::TokType::QUOTE) p = p->pNext;
-        if (getListLen(p) != 2 || p->t != ISAtom::TokType::BRANCH) {
+
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+
+        if (getListLen(pls) != 1 || pls->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'len' requires one list or quoted list operand";
+            pRes->vals = "'len' requires or quoted list operand, len=" + std::to_string(getListLen(pls)) + ", type: " + tokTypeNames[pls->t];
+            deleteList(pls, "listLen 1");
             return pRes;
         }
         pRes->t = ISAtom::TokType::INT;
-        pRes->val = getListLen(p->pChild) - 1;
+        pRes->val = getListLen(pls->pChild) - 1;
+        deleteList(pls, "listLen 2");
         return pRes;
     }
 
