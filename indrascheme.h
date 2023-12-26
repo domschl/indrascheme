@@ -728,8 +728,10 @@ class IndraScheme {
         // ISAtom *pisa = copyList(pisa_o);
         int res = 0;
         double fres = 0.0;
+        string sres = "";
         ISAtom *p = (ISAtom *)pisa, *pn = nullptr;
-        bool fl = false;
+        // bool fl = false;
+        ISAtom::TokType dt = ISAtom::TokType::NIL;
         bool first = true;
         ISAtom *pRes = gca();
 
@@ -742,44 +744,102 @@ class IndraScheme {
         while (p != nullptr) {
             p = chainEval(p, local_symbols, true);
 
-            print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
-            cout << endl;
+            // print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
+            // cout << endl;
 
             pAllocs.push_back(p);
             // p->pNext = pn;
-            if (p->t == ISAtom::TokType::INT) {
+            switch (p->t) {
+            case ISAtom::TokType::INT:
                 if (first) {
                     res = p->val;
+                    dt = ISAtom::TokType::INT;
                     first = false;
                 } else {
                     if (m_op == "+") {
-                        if (fl)
-                            fres += p->val;
-                        else
+                        switch (dt) {
+                        case ISAtom::TokType::INT:
                             res += p->val;
+                            break;
+                        case ISAtom::TokType::FLOAT:
+                            fres += p->val;
+                            break;
+                        case ISAtom::TokType::STRING:
+                            sres += p->str();
+                            break;
+                        default:
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "Unsupported operand-type for '+': " + tokTypeNames[dt];
+                            for (auto p : pAllocs) {
+                                deleteList(p, "math_2ops +1");
+                            }
+                            return pRes;
+                            break;
+                        }
                     } else if (m_op == "-") {
-                        if (fl)
-                            fres -= p->val;
-                        else
+                        switch (dt) {
+                        case ISAtom::TokType::INT:
                             res -= p->val;
+                            break;
+                        case ISAtom::TokType::FLOAT:
+                            fres -= p->val;
+                            break;
+                        default:
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "Unsupported operand-type for '-': " + tokTypeNames[dt];
+                            for (auto p : pAllocs) {
+                                deleteList(p, "math_2ops -1");
+                            }
+                            return pRes;
+                            break;
+                        }
                     } else if (m_op == "*") {
-                        if (fl)
-                            fres = fres * p->val;
-                        else
-                            res = res * p->val;
+                        string smult = "";
+                        switch (dt) {
+                        case ISAtom::TokType::INT:
+                            res *= p->val;
+                            break;
+                        case ISAtom::TokType::FLOAT:
+                            fres *= p->val;
+                            break;
+                        case ISAtom::TokType::STRING:
+                            for (auto i = 0; i < p->val; i++)
+                                smult += sres;
+                            sres = smult;
+                            break;
+                        default:
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "Unsupported operand-type for '*': " + tokTypeNames[dt];
+                            for (auto p : pAllocs) {
+                                deleteList(p, "math_2ops *1");
+                            }
+                            return pRes;
+                            break;
+                        }
                     } else if (m_op == "/") {
                         if (p->val == 0) {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
                             for (auto p : pAllocs) {
-                                deleteList(p, "math_2ops 1");
+                                deleteList(p, "math_2ops /1-0");
                             }
                             return pRes;
                         } else {
-                            if (fl) {
-                                fres /= p->val;
-                            } else {
+                            switch (dt) {
+                            case ISAtom::TokType::INT:
                                 res /= p->val;
+                                break;
+                            case ISAtom::TokType::FLOAT:
+                                fres /= p->val;
+                                break;
+                            default:
+                                pRes->t = ISAtom::TokType::ERROR;
+                                pRes->vals = "Unsupported operand-type for '/': " + tokTypeNames[dt];
+                                for (auto p : pAllocs) {
+                                    deleteList(p, "math_2ops /1");
+                                }
+                                return pRes;
+                                break;
                             }
                         }
                     } else if (m_op == "%") {
@@ -787,14 +847,26 @@ class IndraScheme {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
                             for (auto p : pAllocs) {
-                                deleteList(p, "math_ops 2");
+                                deleteList(p, "math_ops %1-0");
                             }
                             return pRes;
                         } else {
-                            if (fl)
-                                fres = (int)fres % p->val;
-                            else
+                            switch (dt) {
+                            case ISAtom::TokType::INT:
                                 res = res % p->val;
+                                break;
+                            case ISAtom::TokType::FLOAT:
+                                fres = (int)fres % p->val;
+                                break;
+                            default:
+                                pRes->t = ISAtom::TokType::ERROR;
+                                pRes->vals = "Unsupported operand-type for '%': " + tokTypeNames[dt];
+                                for (auto p : pAllocs) {
+                                    deleteList(p, "math_2ops %1");
+                                }
+                                return pRes;
+                                break;
+                            }
                         }
                     } else {
                         pRes->t = ISAtom::TokType::ERROR;
@@ -805,49 +877,95 @@ class IndraScheme {
                         return pRes;
                     }
                 }
-                p = p->pNext;
-            } else if (p->t == ISAtom::TokType::FLOAT) {
+                break;
+            case ISAtom::TokType::FLOAT:
                 if (first) {
                     fres = p->valf;
                     first = false;
-                    fl = true;
+                    dt = ISAtom::TokType::FLOAT;
                 } else {
                     if (m_op == "+") {
-                        if (!fl) {
-                            fres = res;
+                        switch (dt) {
+                        case ISAtom::TokType::INT:
+                            fres = res + p->valf;
+                            dt = ISAtom::TokType::FLOAT;
+                            break;
+                        case ISAtom::TokType::FLOAT:
                             fres += p->valf;
-                            fl = true;
-                        } else
-                            fres += p->valf;
+                            break;
+                        case ISAtom::TokType::STRING:
+                            sres += p->str();
+                            break;
+                        default:
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "Unsupported operand-type for '+': " + tokTypeNames[dt];
+                            for (auto p : pAllocs) {
+                                deleteList(p, "math_2ops +2");
+                            }
+                            return pRes;
+                            break;
+                        }
                     } else if (m_op == "-") {
-                        if (!fl) {
-                            fres = res;
+                        switch (dt) {
+                        case ISAtom::TokType::INT:
+                            fres = res - p->valf;
+                            dt = ISAtom::TokType::FLOAT;
+                            break;
+                        case ISAtom::TokType::FLOAT:
                             fres -= p->valf;
-                            fl = true;
-                        } else
-                            fres -= p->valf;
+                            break;
+                        default:
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "Unsupported operand-type for '-': " + tokTypeNames[dt];
+                            for (auto p : pAllocs) {
+                                deleteList(p, "math_2ops -2");
+                            }
+                            return pRes;
+                            break;
+                        }
                     } else if (m_op == "*") {
-                        if (!fl) {
-                            fres = res;
+                        switch (dt) {
+                        case ISAtom::TokType::INT:
+                            fres = res * p->valf;
+                            dt = ISAtom::TokType::FLOAT;
+                            break;
+                        case ISAtom::TokType::FLOAT:
                             fres *= p->valf;
-                            fl = true;
-                        } else
-                            fres *= p->valf;
+                            break;
+                        default:
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "Unsupported operand-type for '*': " + tokTypeNames[dt];
+                            for (auto p : pAllocs) {
+                                deleteList(p, "math_2ops *2");
+                            }
+                            return pRes;
+                            break;
+                        }
                     } else if (m_op == "/") {
                         if (p->valf == 0) {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
                             for (auto p : pAllocs) {
-                                deleteList(p, "math_ops 4");
+                                deleteList(p, "math_ops /2-0");
                             }
                             return pRes;
                         } else {
-                            if (!fl) {
-                                fres = res;
+                            switch (dt) {
+                            case ISAtom::TokType::INT:
+                                fres = res / p->valf;
+                                dt = ISAtom::TokType::FLOAT;
+                                break;
+                            case ISAtom::TokType::FLOAT:
                                 fres /= p->valf;
-                                fl = true;
-                            } else {
-                                fres /= p->valf;
+                                break;
+                            default:
+                                pRes->t = ISAtom::TokType::ERROR;
+                                pRes->vals = "Unsupported operand-type for '/': " + tokTypeNames[dt];
+                                for (auto p : pAllocs) {
+                                    deleteList(p, "math_2ops /2");
+                                }
+                                return pRes;
+                                break;
                             }
                         }
                     } else if (m_op == "%") {
@@ -855,16 +973,26 @@ class IndraScheme {
                             pRes->t = ISAtom::TokType::ERROR;
                             pRes->vals = "DIV/ZERO!";
                             for (auto p : pAllocs) {
-                                deleteList(p, "math_ops 5");
+                                deleteList(p, "math_ops %2-0");
                             }
                             return pRes;
                         } else {
-                            if (!fl) {
-                                fres = res;
+                            switch (dt) {
+                            case ISAtom::TokType::INT:
+                                fres = res % (int)p->valf;
+                                dt = ISAtom::TokType::FLOAT;
+                                break;
+                            case ISAtom::TokType::FLOAT:
                                 fres = (int)fres % (int)p->valf;
-                                fl = true;
-                            } else {
-                                fres = (int)fres % (int)p->valf;
+                                break;
+                            default:
+                                pRes->t = ISAtom::TokType::ERROR;
+                                pRes->vals = "Unsupported operand-type for '%': " + tokTypeNames[dt];
+                                for (auto p : pAllocs) {
+                                    deleteList(p, "math_2ops %2");
+                                }
+                                return pRes;
+                                break;
                             }
                         }
                     } else {
@@ -876,25 +1004,62 @@ class IndraScheme {
                         return pRes;
                     }
                 }
-                p = p->pNext;
-            } else if (p->t == ISAtom::TokType::NIL) {
-                // cout << "SKIP: " << p->t << " " << p->vals << endl;
-                p = p->pNext;
-            } else {
+                break;
+            case ISAtom::TokType::STRING:
+                if (first) {
+                    sres = p->vals;
+                    first = false;
+                    dt = ISAtom::TokType::STRING;
+                } else {
+                    if (m_op == "+") {
+                        switch (dt) {
+                        case ISAtom::TokType::STRING:
+                            sres = sres + p->vals;
+                            break;
+                        default:
+                            pRes->t = ISAtom::TokType::ERROR;
+                            pRes->vals = "Unsupported operand-type for 'String-+': " + tokTypeNames[dt];
+                            for (auto p : pAllocs) {
+                                deleteList(p, "math_2ops %2");
+                            }
+                            return pRes;
+                            break;
+                        }
+                    }
+                }
+                break;
+
+            case ISAtom::TokType::NIL:
+                break;
+            default:
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Op: " + m_op + ", unhandled tokType: " + std::to_string(p->t);
                 if (p->t == ISAtom::TokType::ERROR) pRes->vals += ": " + p->vals;
+                for (auto p : pAllocs) {
+                    deleteList(p, "math_2ops +1");
+                }
+                return pRes;
                 break;
             }
+            p = p->pNext;
         }
-        if (fl) {  // XXX: better type switch/cases!
+        switch (dt) {
+        case ISAtom::TokType::INT:
+            pRes->t = ISAtom::TokType::INT;
+            pRes->val = res;
+            break;
+        case ISAtom::TokType::FLOAT:
             pRes->t = ISAtom::TokType::FLOAT;
             pRes->valf = fres;
-        } else {
-            if (pRes->t != ISAtom::TokType::ERROR) {
-                pRes->t = ISAtom::TokType::INT;
-                pRes->val = res;
-            }
+            break;
+        case ISAtom::TokType::STRING:
+            pRes->t = ISAtom::TokType::STRING;
+            pRes->vals = sres;
+            break;
+        default:
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Data type not implemented as math result: " + tokTypeNames[dt];
+            break;
         }
         for (auto p : pAllocs) {
             deleteList(p, "math_ops 7");
@@ -902,7 +1067,8 @@ class IndraScheme {
         return pRes;
     }
 
-    bool is_defined(string name, vector<map<string, ISAtom *>> &local_symbols) {
+    bool
+    is_defined(string name, vector<map<string, ISAtom *>> &local_symbols) {
         if (symbols.find(name) == symbols.end() && funcs.find(name) == funcs.end() && is_defined_local_symbol(name, local_symbols) == false) return false;
         return true;
     }
