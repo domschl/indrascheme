@@ -733,26 +733,40 @@ class IndraScheme {
         int res = 0;
         double fres = 0.0;
         string sres = "";
-        ISAtom *p = (ISAtom *)pisa, *pn = nullptr;
+        ISAtom *pn = nullptr;
         // bool fl = false;
         ISAtom::TokType dt = ISAtom::TokType::NIL;
         bool first = true;
         ISAtom *pRes = gca();
+        vector<ISAtom *> pAllocs;
 
         if (getListLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Not enough operands for <" + m_op + "> operation";
+
+            // cout << "Not-enough operands: Op: " << m_op << " length: " << getListLen(pisa) << " : ";
+            // print(pisa, local_symbols, ISAtom::DecorType::UNICODE, true);
+            // cout << endl;
+
             return pRes;
         }
-        vector<ISAtom *> pAllocs;
+
+        ISAtom *pev = chainEval(pisa, local_symbols, true);
+        pAllocs.push_back(pev);
+        ISAtom *p = (ISAtom *)pev;
+
+        // cout << "Op: " << m_op << ": ";
+        // print(pev, local_symbols, ISAtom::DecorType::UNICODE, true);
+        // cout << endl;
+
         while (p != nullptr) {
-            p = chainEval(p, local_symbols, true);
+            // p = chainEval(p, local_symbols, true);
 
             // print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
             // cout << endl;
 
-            pAllocs.push_back(p);
-            // p->pNext = pn;
+            // pAllocs.push_back(p);
+            //  p->pNext = pn;
             switch (p->t) {
             case ISAtom::TokType::INT:
                 if (first) {
@@ -1037,7 +1051,7 @@ class IndraScheme {
                 break;
             default:
                 pRes->t = ISAtom::TokType::ERROR;
-                pRes->vals = "Op: " + m_op + ", unhandled tokType: " + std::to_string(p->t);
+                pRes->vals = "Op: " + m_op + ", unhandled tokType: " + tokTypeNames[p->t] + " -> " + p->str();
                 if (p->t == ISAtom::TokType::ERROR) pRes->vals += ": " + p->vals;
                 for (auto p : pAllocs) {
                     deleteList(p, "math_2ops +1");
@@ -1981,7 +1995,7 @@ class IndraScheme {
         vector<string> localNames;
         int n = 0;
         bool err = false;
-
+        /*
         cout << "InputData: ";
         print(input_data, local_symbols, ISAtom::DecorType::UNICODE, true);
         cout << endl;
@@ -1991,7 +2005,7 @@ class IndraScheme {
         cout << "pfunc: ";
         print(pfunc, local_symbols, ISAtom::DecorType::UNICODE, true);
         cout << endl;
-
+        */
         while (pNa && !err) {
             if (pNa->t == ISAtom::TokType::NIL) break;
             if (pNa->t == ISAtom::TokType::SYMBOL) {
@@ -2021,11 +2035,33 @@ class IndraScheme {
         ISAtom *pCurVar;
         const ISAtom *pInp = input_data;
         for (auto var_name : localNames) {
-            ISAtom *pT = eval(pInp, local_symbols);
-            // cout << "lambda var " << var_name << " = ";
-            // print(pT, local_symbols, ISAtom::DecorType::NONE, false);
-            // cout << endl;
+            // General Quote-is-pNext mess:
+            if (pInp->t == ISAtom::TokType::QUOTE) pInp = pInp->pNext;
+
+            ISAtom *pS = gca(pInp);
+            if (pInp->pChild) pS->pChild = copyList(pInp->pChild);
+            pS->pNext = gca();
+            /*
+            cout << "L_EV_1: " << var_name << " -> ";
+            print(pS, local_symbols, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
+            */
+            bool bDoEval = true;
+            if (pS->t == ISAtom::TokType::STRING || pS->t == ISAtom::TokType::SYMBOL) {
+                string func_name = pS->vals;
+                if (is_inbuilt(func_name) || is_defined_func(func_name)) {
+                    bDoEval = false;
+                    // cout << "Not evaluating indirect function: " << func_name << endl;
+                }
+            }
+            ISAtom *pT;
+            if (bDoEval)
+                pT = eval(pS, local_symbols);
+            else
+                pT = copyList(pS);
+
             set_local_symbol(var_name, pT, local_symbols);
+            deleteList(pS, "LAM-DELSYM");
             pInp = pInp->pNext;
         }
         p = eval(pfunc, local_symbols);
@@ -2037,20 +2073,6 @@ class IndraScheme {
     ISAtom *eval_func(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         string fun_name = pisa->vals;
-        if (!is_defined_func(fun_name)) {
-            if (is_defined_local_symbol(fun_name, local_symbols)) {
-                ISAtom *pSym = get_local_symbol(fun_name, local_symbols);
-                if (pSym->t == ISAtom::TokType::STRING || pSym->t == ISAtom::TokType::SYMBOL) {
-                    fun_name = pSym->vals;
-                    cout << "Funcname-resolve ->" << fun_name << endl;
-                } else {
-                    cout << fun_name << " resolved to wrong type!" << endl;
-                }
-                deleteList(pSym, "eval_func resolver");
-            } else {
-                cout << fun_name << " is no local symbol!" << endl;
-            }
-        }
         if (is_defined_func(fun_name)) {
             ISAtom *pDef = funcs[fun_name];
             ISAtom *pvars = gca(pDef);
@@ -2119,7 +2141,7 @@ class IndraScheme {
     }
 
     ISAtom *eval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool func_only = false) {
-        ISAtom *pN, *pRet;  //, *pReti;
+        ISAtom *pN, *pRet = nullptr;  //, *pReti;
 
         ISAtom *p = (ISAtom *)pisa;
         pN = p->pNext;
@@ -2148,32 +2170,31 @@ class IndraScheme {
             } else if (!func_only && is_defined_symbol(pisa->vals, local_symbols)) {
                 pRet = eval_symbol(pisa, local_symbols);
             } else {
-                string fun_name = pisa->vals;
-                if (is_defined_symbol(fun_name, local_symbols)) {
-                    if (is_defined_local_symbol(fun_name, local_symbols)) {
-                        ISAtom *pSym = get_local_symbol(fun_name, local_symbols);
-                        if (pSym->t == ISAtom::TokType::STRING || pSym->t == ISAtom::TokType::SYMBOL) {
-                            fun_name = pSym->vals;
-                            cout << "Funcname-resolve ->" << fun_name << endl;
+                if (func_only) {
+                    ISAtom *pS = gca(pisa);
+                    ISAtom *pResolve = eval_symbol(pS, local_symbols);
+                    if (pResolve->t == ISAtom::TokType::STRING || pResolve->t == ISAtom::TokType::SYMBOL) {
+                        string func_name = pResolve->vals;
+                        // cout << "translated func-name: >" << func_name << "<";
+                        deleteList(pResolve, "Sym2Func resolver 1");
+                        deleteList(pS, "Sym2Func resolver 1.1");
+                        ISAtom *pCpisa = copyList(pisa);
+                        pCpisa->vals = func_name;
+                        if (is_inbuilt(pCpisa->vals)) {
+                            pRet = inbuilts[pCpisa->vals](pCpisa->pNext, local_symbols);
+                            deleteList(pCpisa, "Sym2Func resolver 2");
+                            return pRet;
+                        } else if (is_defined_func(pCpisa->vals)) {
+                            pRet = eval_func(pCpisa, local_symbols);
+                            deleteList(pCpisa, "Sym2Func resolver 3");
+                            return pRet;
                         } else {
-                            cout << fun_name << " resolved to wrong type!" << endl;
+                            // didn't work
+                            deleteList(pCpisa, "Sym2Func resolver 4");
                         }
-                        deleteList(pSym, "eval_func resolver");
-                    }
-                    if (is_defined_global_symbol(fun_name)) {
-                        ISAtom *pSym = copyList(symbols[fun_name]);
-                        if (pSym->t == ISAtom::TokType::STRING || pSym->t == ISAtom::TokType::SYMBOL) {
-                            fun_name = pSym->vals;
-                            cout << "Funcname-resolve ->" << fun_name << endl;
-                        } else {
-                            cout << fun_name << " resolved to wrong type!" << endl;
-                        }
-                        deleteList(pSym, "eval_func resolver");
-                    }
-                    if (is_inbuilt(fun_name)) {
-                        return pRet = inbuilts[fun_name](pisa->pNext, local_symbols);
-                    } else if (is_defined_func(pisa->vals)) {
-                        return pRet = eval_func(pisa, local_symbols);
+                    } else {
+                        deleteList(pResolve, "Sym2Func resover 5");
+                        deleteList(pS, "Sym2Func resolver 5.1");
                     }
                 }
                 pRet = gca();
