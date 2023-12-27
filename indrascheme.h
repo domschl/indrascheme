@@ -162,7 +162,7 @@ class IndraScheme {
         inbuilts["reverse"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listReverse(pisa, local_symbols); };
         inbuilts["index"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listIndex(pisa, local_symbols); };
         inbuilts["range"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listRange(pisa, local_symbols); };
-        // inbuilts["sublist"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listSublist(pisa, local_symbols); };
+        inbuilts["sublist"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listSublist(pisa, local_symbols); };
 
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
         // inbuilts["type"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalType(pisa, local_symbols); };
@@ -1687,6 +1687,7 @@ class IndraScheme {
             return pRes;
         }
         deleteList(pRes, "listIndex 4");
+        if (p->t == ISAtom::TokType::QUOTE) p = p->pNext;
         pRes = gca(p);
         if (p->pChild) pRes = copyList(p->pChild);
         deleteList(pls, "listIndex 5");
@@ -1697,10 +1698,6 @@ class IndraScheme {
         ISAtom *pRes = gca();
         ISAtom *pls = chainEval(pisa, local_symbols, true);
         int r1 = 0, r2;
-
-        print(pls, local_symbols, ISAtom::DecorType::UNICODE, true);
-        cout << " len=" << getListLen(pls) << endl;
-
         if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::INT && pls->pNext->t == ISAtom::TokType::INT) {
             r1 = pls->val;
             r2 = pls->pNext->val;
@@ -1736,6 +1733,61 @@ class IndraScheme {
             p->pNext = gca();
         }
         deleteList(pls, "listRange 3");
+        return pRes;
+    }
+
+    ISAtom *listSublist(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        int r1 = 0, r2;
+
+        // print(pls, local_symbols, ISAtom::DecorType::UNICODE, true);
+        // cout << " len=" << getListLen(pls) << endl;
+
+        if (getListLen(pls) == 3 && pls->t == ISAtom::TokType::BRANCH && pls->pNext->t == ISAtom::TokType::INT && pls->pNext->pNext->t == ISAtom::TokType::INT) {
+            r1 = pls->pNext->val;
+            r2 = pls->pNext->pNext->val;
+        } else if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::BRANCH && pls->pNext->t == ISAtom::TokType::INT) {
+            r2 = pls->pNext->val;
+        } else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'sublist' requires a list and one or two INT operands, got " + std::to_string(getListLen(pls));
+            deleteList(pls, "listSublist 1");
+            return pRes;
+        }
+        deleteList(pRes, "listSublist 2");
+        pRes = gca();
+        pRes->t = ISAtom::TokType::BRANCH;
+        ISAtom *p = pRes;
+        bool first = true;
+        ISAtom *pS = pls->pChild;
+        for (int i = 0; i < getListLen(pls->pChild); i++) {
+            if (i >= r1 && i < r2) {
+                if (first) {
+                    first = false;
+                    p->pChild = gca(pS);
+                    p = p->pChild;
+                    if (pS->pChild) p->pChild = copyList(pS->pChild);
+                } else {
+                    p->pNext = gca(pS);
+                    p = p->pNext;
+                    if (pS->pChild) p->pChild = copyList(pS->pChild);
+                }
+                if (pS->t == ISAtom::TokType::QUOTE) {
+                    pS = pS->pNext;
+                    p->pNext = gca(pS);
+                    p = p->pNext;
+                    if (pS->pChild) p->pChild = copyList(pS->pChild);
+                }
+                pS = pS->pNext;
+            }
+        }
+        if (first) {
+            p->pChild = gca();
+        } else {
+            p->pNext = gca();
+        }
+        deleteList(pls, "listSublist 3");
         return pRes;
     }
 
