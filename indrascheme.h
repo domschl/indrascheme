@@ -157,11 +157,19 @@ class IndraScheme {
         inbuilts["cons"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCons(pisa, local_symbols); };
         inbuilts["car"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCar(pisa, local_symbols); };
         inbuilts["cdr"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listCdr(pisa, local_symbols); };
-        inbuilts["length"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listLen(pisa, local_symbols); };
+        inbuilts["length"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listLength(pisa, local_symbols); };
         inbuilts["append"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listAppend(pisa, local_symbols); };
         inbuilts["reverse"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listReverse(pisa, local_symbols); };
+        inbuilts["index"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listIndex(pisa, local_symbols); };
+        inbuilts["range"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listRange(pisa, local_symbols); };
+        // inbuilts["sublist"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listSublist(pisa, local_symbols); };
+
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
+        // inbuilts["type"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalType(pisa, local_symbols); };
+        // inbuilts["convtype"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalConvtype(pisa, local_symbols); };
+
         inbuilts["every"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEvery(pisa, local_symbols); };
+        // inbuilts["map"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalMap(pisa, local_symbols); };
     }
 
     ISAtom *gca(const ISAtom *src = nullptr, bool bRegister = true) {
@@ -217,11 +225,22 @@ class IndraScheme {
         return gctr.size();
     }
 
-    int getListLen(const ISAtom *pisa) {  // XXX NIL is counted!
+    int getRawListLen(const ISAtom *pisa) {  // XXX NIL is counted!
         int len = 1;
+        if (!pisa) return 0;
         const ISAtom *p = pisa;
         while (p->pNext) {
             if (p->t != ISAtom::TokType::QUOTE) ++len;
+            p = p->pNext;
+        }
+        return len;
+    }
+
+    int getListLen(const ISAtom *pisa) {
+        int len = 0;
+        const ISAtom *p = pisa;
+        while (p) {
+            if (p->t != ISAtom::TokType::QUOTE && p->t != ISAtom::TokType::NIL) ++len;
             p = p->pNext;
         }
         return len;
@@ -564,7 +583,7 @@ class IndraScheme {
         ISAtom *pRes = gca();
         vector<const ISAtom *> pAllocs;
 
-        if (getListLen(pisa) != 3) {
+        if (getRawListLen(pisa) != 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Not enough operands for <" + m_op + "> operation";
             return pRes;
@@ -739,11 +758,11 @@ class IndraScheme {
         ISAtom *pRes = gca();
         vector<ISAtom *> pAllocs;
 
-        if (getListLen(pisa) < 3) {
+        if (getRawListLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Not enough operands for <" + m_op + "> operation";
 
-            // cout << "Not-enough operands: Op: " << m_op << " length: " << getListLen(pisa) << " : ";
+            // cout << "Not-enough operands: Op: " << m_op << " length: " << getRawListLen(pisa) << " : ";
             // print(pisa, local_symbols, ISAtom::DecorType::UNICODE, true);
             // cout << endl;
 
@@ -1156,7 +1175,7 @@ class IndraScheme {
     ISAtom *makeDefine(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         // ISAtom *pisa = copyList(pisa_o);
         ISAtom *pRes = gca();
-        if (getListLen(pisa) < 3) {
+        if (getRawListLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'define' requires 2 operands: name and value(s)";
             return pRes;
@@ -1168,7 +1187,7 @@ class IndraScheme {
         bool err = false;
         switch (pN->t) {
         case ISAtom::TokType::SYMBOL:
-            if (getListLen(pisa) > 3) {
+            if (getRawListLen(pisa) > 3) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Symbol-'define' requires exactly 2 operands: name and value";
                 return pRes;
@@ -1245,7 +1264,7 @@ class IndraScheme {
     ISAtom *makeLocalDefine(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         vector<ISAtom *> pAllocs;
         ISAtom *pRes = gca();
-        if (getListLen(pisa) < 2) {
+        if (getRawListLen(pisa) < 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'let' requires at least 1 operand";
             return pRes;
@@ -1268,7 +1287,7 @@ class IndraScheme {
                 pop_local_symbols(local_symbols);
                 return pRes;
             }
-            if (getListLen(pDef->pChild) != 3) {
+            if (getRawListLen(pDef->pChild) != 3) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'let' list entries must be list of exactly two entries: required are a list of key values pairs: ((k v ), ..) [ ()]";
                 for (ISAtom *pA : pAllocs) {
@@ -1341,7 +1360,7 @@ class IndraScheme {
 
     ISAtom *setLocalDefine(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) != 3) {
+        if (getRawListLen(pisa) != 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'set!' requires 2 params: <existing-local-varname> <val>";
             return pRes;
@@ -1379,7 +1398,7 @@ class IndraScheme {
 
     ISAtom *evalIf(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) != 3 && getListLen(pisa) != 4) {
+        if (getRawListLen(pisa) != 3 && getRawListLen(pisa) != 4) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'if' requires 2 or 3 operands: <condition> <true-expr> [<false-expr>]";
             return pRes;
@@ -1426,7 +1445,7 @@ class IndraScheme {
 
     ISAtom *evalWhile(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) < 3) {
+        if (getRawListLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'while' requires at least 2 operands: <condition> <expr> [<expr>]...";
             return pRes;
@@ -1470,7 +1489,7 @@ class IndraScheme {
 
     ISAtom *evalPrint(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         // ISAtom *pisa = copyList(pisa_o);
-        if (getListLen(pisa) < 1) {
+        if (getRawListLen(pisa) < 1) {
             ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'print' requires at least 1 operand: <expr> [<expr>]...";
@@ -1486,7 +1505,7 @@ class IndraScheme {
 
     ISAtom *evalStringify(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         // ISAtom *pisa = copyList(pisa_o);
-        if (getListLen(pisa) < 1) {
+        if (getRawListLen(pisa) < 1) {
             ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'stringify' requires at least 1 operand: <expr> [<expr>]...";
@@ -1503,7 +1522,7 @@ class IndraScheme {
 
     ISAtom *evalListfunc(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) < 1) {
+        if (getRawListLen(pisa) < 1) {
             ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'listfunc' requires at least 1 operand: <expr> [<expr>]...";
@@ -1541,7 +1560,7 @@ class IndraScheme {
 
     ISAtom *evalEvery(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) < 2) {
+        if (getRawListLen(pisa) < 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'evalEvery' requires at least 2 operands";
             return pRes;
@@ -1602,7 +1621,7 @@ class IndraScheme {
     }
 
     ISAtom *evalEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
-        if (getListLen(pisa) < 1) {
+        if (getRawListLen(pisa) < 1) {
             ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'eval' requires at least 1 operand: <expr> [<expr>]...";
@@ -1621,21 +1640,102 @@ class IndraScheme {
         return pResS;
     }
 
-    ISAtom *listLen(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+    ISAtom *listLength(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *p = (ISAtom *)pisa;
 
         ISAtom *pls = chainEval(pisa, local_symbols, true);
 
-        if (getListLen(pls) != 1 || pls->t != ISAtom::TokType::BRANCH) {
+        if (getRawListLen(pls) != 1 || pls->t != ISAtom::TokType::BRANCH) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'len' requires or quoted list operand, len=" + std::to_string(getListLen(pls)) + ", got type: " + tokTypeNames[pls->t];
+            pRes->vals = "'len' requires or quoted list operand, len=" + std::to_string(getRawListLen(pls)) + ", got type: " + tokTypeNames[pls->t];
             deleteList(pls, "listLen 1");
             return pRes;
         }
         pRes->t = ISAtom::TokType::INT;
-        pRes->val = getListLen(pls->pChild) - 1;
+        pRes->val = getRawListLen(pls->pChild) - 1;
         deleteList(pls, "listLen 2");
+        return pRes;
+    }
+
+    ISAtom *listIndex(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+
+        if (getListLen(pls) != 2 || pls->t != ISAtom::TokType::BRANCH || pls->pNext->t != ISAtom::TokType::INT) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'index' requires or quoted list and and integer operand";
+            deleteList(pls, "listIndex 1");
+            return pRes;
+        }
+        int index = pls->pNext->val;
+        if (getListLen(pls->pChild) <= index || index < 0) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'index' out of range at index: " + std::to_string(index) + ", list is of size: " + std::to_string(getListLen(pls->pChild));
+            deleteList(pls, "listIndex 2");
+            return pRes;
+        }
+        ISAtom *p = pls->pChild;
+        for (int i = 0; i < index; i++) {
+            if (p->t == ISAtom::TokType::QUOTE) p = p->pNext;  // XXX another quote mess.
+            p = p->pNext;
+        }
+        if (!p) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'index' walk caused internal error";
+            deleteList(pls, "listIndex 3");
+            return pRes;
+        }
+        deleteList(pRes, "listIndex 4");
+        pRes = gca(p);
+        if (p->pChild) pRes = copyList(p->pChild);
+        deleteList(pls, "listIndex 5");
+        return pRes;
+    }
+
+    ISAtom *listRange(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        int r1 = 0, r2;
+
+        print(pls, local_symbols, ISAtom::DecorType::UNICODE, true);
+        cout << " len=" << getListLen(pls) << endl;
+
+        if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::INT && pls->pNext->t == ISAtom::TokType::INT) {
+            r1 = pls->val;
+            r2 = pls->pNext->val;
+        } else if (getListLen(pls) == 1 && pls->t == ISAtom::TokType::INT) {
+            r2 = pls->val;
+        } else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'range' requires one or two INT operands, got " + std::to_string(getListLen(pls));
+            deleteList(pls, "listRange 1");
+            return pRes;
+        }
+        deleteList(pRes, "listRange 2");
+        pRes = gca();
+        pRes->t = ISAtom::TokType::BRANCH;
+        ISAtom *p = pRes;
+        bool first = true;
+        for (int i = r1; i < r2; i++) {
+            if (first) {
+                p->pChild = gca();
+                p = p->pChild;
+                first = false;
+            } else {
+                p->pNext = gca();
+                p = p->pNext;
+            }
+            p->val = i;
+            p->t = ISAtom::TokType::INT;
+        }
+        if (first) {
+            // p->pNext = gca();
+            p->pChild = gca();
+        } else {
+            p->pNext = gca();
+        }
+        deleteList(pls, "listRange 3");
         return pRes;
     }
 
@@ -1658,7 +1758,7 @@ class IndraScheme {
     ISAtom *listCons(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *pStart = pRes;
-        if (getListLen(pisa) < 3) {
+        if (getRawListLen(pisa) < 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'cons' requires two args";
             return pRes;
@@ -1703,7 +1803,7 @@ class IndraScheme {
 
     ISAtom *listCar(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) != 2) {
+        if (getRawListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'car' requires one list arg";
             return pRes;
@@ -1730,7 +1830,7 @@ class IndraScheme {
 
     ISAtom *listCdr(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) != 2) {
+        if (getRawListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'cdr' requires one list arg";
             return pRes;
@@ -1758,13 +1858,13 @@ class IndraScheme {
 
     ISAtom *listAppend(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) != 3) {
+        if (getRawListLen(pisa) != 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'listAppend' requires two args";
             return pRes;
         }
         ISAtom *pls = chainEval(pisa, local_symbols, true);
-        if (getListLen(pisa) != 3) {
+        if (getRawListLen(pisa) != 3) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'listAppend' (aft. eval) requires two args";
             deleteList(pls, "listAppend 1");
@@ -1814,20 +1914,19 @@ class IndraScheme {
             deleteList(pApp, "no-nil-append");
             return pRes;
         }
-
         deleteList(pRes, "listAppend 3");
         return pApp;
     }
 
     ISAtom *listReverse(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) != 2) {
+        if (getRawListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'listReverse' requires one args";
             return pRes;
         }
         ISAtom *pls = chainEval(pisa, local_symbols, true);
-        if (getListLen(pisa) != 2) {
+        if (getRawListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'listReverse' (aft. eval) requires one args";
             return pRes;
@@ -1876,9 +1975,9 @@ class IndraScheme {
 
     ISAtom *evalParse(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-        if (getListLen(pisa) != 2) {
+        if (getRawListLen(pisa) != 2) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'parse' requires one operand that is parsed as expression: got " + std::to_string(getListLen(pisa));
+            pRes->vals = "'parse' requires one operand that is parsed as expression: got " + std::to_string(getRawListLen(pisa));
             return pRes;
         }
         ISAtom *pP = chainEval(pisa, local_symbols, true);
@@ -1940,9 +2039,9 @@ class IndraScheme {
     ISAtom *evalLoad(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *pls = chainEval(pisa, local_symbols, true);
-        if (getListLen(pls) != 1) {
+        if (getRawListLen(pls) != 1) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'load' requires one string operand, a filename, got: " + std::to_string(getListLen(pisa));
+            pRes->vals = "'load' requires one string operand, a filename, got: " + std::to_string(getRawListLen(pisa));
             deleteList(pls, "load 1");
             return pRes;
         }
@@ -2036,10 +2135,10 @@ class IndraScheme {
                 break;
             }
         }
-        if (getListLen(input_data) - 1 != n - skipper) {
+        if (getRawListLen(input_data) - 1 != n - skipper) {
             err = true;
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "Lambda requires " + std::to_string(n - skipper) + " arguments, " + std::to_string(getListLen(input_data) - 1) + " given";
+            pRes->vals = "Lambda requires " + std::to_string(n - skipper) + " arguments, " + std::to_string(getRawListLen(input_data) - 1) + " given";
             pop_local_symbols(local_symbols);
             return pRes;
         }
