@@ -1715,6 +1715,12 @@ class IndraScheme {
             deleteList(pls, "car 1");
             return pRes;
         }
+        if (!pls->pChild->pNext) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'car' requires one arg as non-empty list";
+            deleteList(pls, "car 2");
+            return pRes;
+        }
         ISAtom *pCar = gca(pls->pChild);
         if (pls->pChild->pChild) pCar->pChild = copyList(pls->pChild->pChild);
         deleteList(pRes, "car 2");

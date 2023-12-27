@@ -7,7 +7,50 @@
     (print "100 first primes, OK\n") 
     (begin 
         (print "Failure calculating 100 first primes\n") 
-        (define err_count (+ err_count 1))))
+        (define err_count (+ err_count 1))
+    )
+)
+
+; Lambda stuff
+(if (== ((lambda (x) (+ x 7)) 8) 15) 
+    (print "Lambda var1 OK\n") 
+    (begin 
+        (print "Lambda var1 ERROR\n")
+        (define err_count (+ err_count 1))
+    )
+)
+
+(if (== ((lambda (x y) (+ x y 7)) 8 9) 24) 
+    (print "Lambda var2 OK\n") 
+    (begin 
+        (print "Lambda var2 ERROR\n")
+        (define err_count (+ err_count 1))
+    )
+)
+
+(if (== ((lambda (x y) (x y 7 8)) '+ 9) 24) 
+    (print "Lambda op-var var1 OK\n") 
+    (begin 
+        (print "Lambda op-var var1 ERROR\n")
+        (define err_count (+ err_count 1))
+    )
+)
+
+(let ((n 1) (m 2) (t 0)) 
+    (while (< n 5) 
+        (set! n (+ n 1)) 
+        (if (== n m) 
+            (set! t (+ t 1))
+        )
+    )
+    (if (== t 1) 
+        (print "While OK\n")
+        (begin 
+            (print "While ERROR\n")
+            (define err_count (+ err_count 1))
+        )
+    )
+)
 
 (if (> err_count 0) 
     (print "Self-test failed with " err_count " errors") 
