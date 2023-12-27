@@ -1,0 +1,14 @@
+(load "../samples/primes.is")
+
+(define err_count 0)
+
+; There are 25 primes in [2..100]:
+(if (== (length (primes 100)) 25) 
+    (print "100 first primes, OK\n") 
+    (begin 
+        (print "Failure calculating 100 first primes\n") 
+        (define err_count (+ err_count 1))))
+
+(if (> err_count 0) 
+    (print "Self-test failed with " err_count " errors") 
+    (print "Self-test ok!"))

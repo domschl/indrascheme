@@ -161,7 +161,6 @@ class IndraScheme {
         inbuilts["append"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listAppend(pisa, local_symbols); };
         inbuilts["reverse"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listReverse(pisa, local_symbols); };
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
-        // inbuilts["lambda"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalLambda(pisa, local_symbols); };
         inbuilts["every"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEvery(pisa, local_symbols); };
     }
 
@@ -1900,11 +1899,41 @@ class IndraScheme {
         }
     }
 
+    ISAtom *load(string filename, vector<map<string, ISAtom *>> &local_symbols) {
+        char buf[129];
+        size_t nb;
+        string cmd = "";
+        ISAtom *pRes = gca();
+        FILE *fp = fopen(filename.c_str(), "r");
+        if (fp) {
+            while (!feof(fp)) {
+                nb = fread(buf, 1, 128, fp);
+                buf[nb] = 0;
+                cmd += buf;
+            }
+            fclose(fp);
+        } else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Could not read file: " + filename;
+            return pRes;
+        }
+        if (cmd != "") {
+            int lvl = 0;
+            ISAtom *pisa_p = parse(cmd, nullptr, lvl);
+            ISAtom *pisa_res = chainEval(pisa_p, local_symbols, false);
+            deleteList(pisa_p, "evalLoad 4");
+            deleteList(pRes, "evalLoad 5");
+            return pisa_res;
+        } else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Empty file: " + filename;
+            return pRes;
+        }
+    }
+
     ISAtom *evalLoad(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
-
         ISAtom *pls = chainEval(pisa, local_symbols, true);
-
         if (getListLen(pls) != 1) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'load' requires one string operand, a filename, got: " + std::to_string(getListLen(pisa));
@@ -1918,33 +1947,10 @@ class IndraScheme {
             deleteList(pls, "load 2");
             return pRes;
         }
-
-        char buf[129];
-        size_t nb;
-        string cmd = "";
-        FILE *fp = fopen(pP->vals.c_str(), "r");
-        if (fp) {
-            while (!feof(fp)) {
-                nb = fread(buf, 1, 128, fp);
-                buf[nb] = 0;
-                cmd += buf;
-            }
-            fclose(fp);
-        }
-        if (cmd != "") {
-            int lvl = 0;
-            ISAtom *pisa_p = parse(cmd, nullptr, lvl);
-            ISAtom *pisa_res = chainEval(pisa_p, local_symbols, false);
-            deleteList(pisa_p, "evalLoad 4");
-            deleteList(pRes, "evalLoad 5");
-            deleteList(pls, "evalLoad 5.1");
-            return pisa_res;
-        } else {
-            pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "Could not read file: " + pisa->vals;
-            deleteList(pls, "evalLoad 5.2");
-            return pRes;
-        }
+        ISAtom *pR = load(pP->vals, local_symbols);
+        deleteList(pls, "evalLoad 5.2");
+        deleteList(pRes, "evalLoad 5.3");
+        return pR;
     }
 
     bool is_inbuilt(string funcName) {
@@ -2082,58 +2088,7 @@ class IndraScheme {
             deleteList(pRes, "ev_func 1");
             deleteList(pvars, "ev_func 2");
             return p;
-        }
-        /*
-
-                    ISAtom *p, *pn, *pDef;
-                    local_symbols.push_back({});
-                    pDef = funcs[pisa->vals];
-                    ISAtom *pNa = pDef->pChild;
-                    vector<string> localNames;
-                    int n = 0;
-                    bool err = false;
-                    string func_name;
-                    while (pNa && !err) {
-                        if (pNa->t == ISAtom::TokType::NIL) break;
-                        if (pNa->t == ISAtom::TokType::SYMBOL) {
-                            n = n + 1;
-                            if (n > 1) {
-                                localNames.push_back(pNa->vals);
-                                // cout << "localVar" << n-1 << ", " << pNa->vals << endl;
-                            } else {
-                                func_name = pNa->vals;
-                            }
-                            pNa = pNa->pNext;
-                        } else {
-                            err = true;
-                            pRes->t = ISAtom::TokType::ERROR;
-                            pRes->vals = "'define' function requires symbol as first operand (name) and optional symbols identifying parameters, type " + tokTypeNames[pNa->t] + " is invalid, symbol required.";
-                            pop_local_symbols(local_symbols);
-                            return pRes;
-                            break;
-                        }
-                    }
-                    if (getListLen(pisa) - 2 != n - 1) {  // Pisa: fun-name and nil: 2, n: fun-name: 1
-                        err = true;
-                        pRes->t = ISAtom::TokType::ERROR;
-                        pRes->vals = "Function " + func_name + " requires " + std::to_string(n - 1) + " arguments, " + std::to_string(getListLen(pisa) - 2) + " given";
-                        pop_local_symbols(local_symbols);
-                        return pRes;
-                    }
-                    ISAtom *pCurVar;
-                    const ISAtom *pInp = pisa;
-                    for (auto var_name : localNames) {
-                        pInp = pInp->pNext;
-                        ISAtom *pT = eval(pInp, local_symbols);
-                        set_local_symbol(var_name, pT, local_symbols);
-                    }
-                    p = eval(pDef->pNext, local_symbols);
-                    pop_local_symbols(local_symbols);
-                    deleteList(pRes, "eval_func");
-                    return p;
-    }
-                    */
-        else {
+        } else {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "Undefined function >" + pisa->vals + "< Internal error.";
             return pRes;

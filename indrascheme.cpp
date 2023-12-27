@@ -142,7 +142,7 @@ string charReader(string prompt, bool *pQuit, string term) {
     return inp;
 }
 
-void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term) {
+void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term, vector<string> file_names) {
     std::string cmd, inp;
     bool fst;
     string ans;
@@ -156,8 +156,29 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
 
     vector<map<string, ISAtom *>> lsyms;
     lsyms.push_back(map<string, ISAtom *>{});
-    ISAtom *pisa;
+    ISAtom *pisa, *pisa_res;
 
+    if (file_names.size() > 0) {
+        auto start = std::chrono::steady_clock::now();
+        int l_lvl = 0;
+        for (int i = 0; i < file_names.size(); i++) {
+            cout << "----- " << file_names[i] << "-----" << endl;
+            pisa_res = ins.load(file_names[i], lsyms);
+            cout << endl;
+            ins.print(pisa_res, lsyms, decor, true);
+            ins.deleteList(pisa_res, "repl 1");
+        }
+        auto diff = std::chrono::steady_clock::now() - start;
+        cout << endl;
+        std::cout << "INIT files, dt: "
+                  << std::chrono::duration<double, std::nano>(diff).count()
+                  << " ns, ss: " << ins.gc_size() << endl;
+
+        if (ins.gc_size() != 0) {
+            cout << "ERROR: memory loss during INIT!" << endl
+                 << endl;
+        }
+    }
     cmd = "";
     while (true) {
         bool bComplete = false;
@@ -181,7 +202,6 @@ void repl(std::string &prompt, std::string &prompt2, bool bUnicode, string term)
         ISAtom *pisa_res = ins.chainEval(pisa, lsyms, true);
         cout << endl
              << prompt2;
-
         ins.print(pisa_res, lsyms, decor, true);
 
         auto diff = std::chrono::steady_clock::now() - start;
@@ -216,6 +236,21 @@ int main(int argc, char *argv[]) {
     string term(szTerm);
     bool bUnicode = true;
     cout << "Indrascheme starting, " << szTerm << endl;
+
+    vector<string> file_list;
+    if (argc > 1) {
+        for (int i = 1; i < argc; i++) {
+            cout << argv[i] << " loading...";
+            if (FILE *fp = fopen(argv[i], "r")) {
+                cout << endl;
+                fclose(fp);
+                file_list.push_back(argv[i]);
+            } else {
+                cout << " ERROR: can't open, ignoring." << endl;
+            }
+        }
+    }
+
     if (term == "linux") {
         prompt = "I> ";
         prompt2 = " > ";
@@ -224,7 +259,7 @@ int main(int argc, char *argv[]) {
         prompt = "ℑ⧽ ";
         prompt2 = "⟫  ";
     }
-    repl(prompt, prompt2, bUnicode, term);
+    repl(prompt, prompt2, bUnicode, term, file_list);
     std::cout << "end-repl" << std::endl;
     return 0;
 }
