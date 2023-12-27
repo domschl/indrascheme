@@ -127,7 +127,7 @@ class IndraScheme {
     map<string, std::function<ISAtom *(ISAtom *, vector<map<string, ISAtom *>> &)>> inbuilts;
     map<string, ISAtom *> symbols;
     map<string, ISAtom *> funcs;
-    vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "Branch"};
+    vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "List"};
     map<ISAtom *, size_t> gctr;
     bool memDbg = true;
 
@@ -163,9 +163,12 @@ class IndraScheme {
         inbuilts["index"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listIndex(pisa, local_symbols); };
         inbuilts["range"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listRange(pisa, local_symbols); };
         inbuilts["sublist"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listSublist(pisa, local_symbols); };
+        inbuilts["splitstring"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringSplitstring(pisa, local_symbols); };
+        inbuilts["substring"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringSubstring(pisa, local_symbols); };
+        // inbuilts["find"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalFind(pisa, local_symbols); };
 
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
-        // inbuilts["type"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalType(pisa, local_symbols); };
+        inbuilts["type"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalType(pisa, local_symbols); };
         // inbuilts["convtype"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalConvtype(pisa, local_symbols); };
 
         inbuilts["every"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEvery(pisa, local_symbols); };
@@ -396,7 +399,12 @@ class IndraScheme {
         ISAtom *pCurNode = pStart;
 
         while (input.length() > 0 && !bError) {
-            c = input[0];
+            c = input.c_str()[0];
+            if (c != input.substr(0, 1)[0]) {
+                cout << "ERROR: Input parser Unicode collapse at >" << input.substr(0, 1) << "<"
+                     << " vs. >" << c << "<"
+                     << endl;
+            }
             int lvl;
             parsed += c;
             input = input.substr(1);
@@ -1620,8 +1628,24 @@ class IndraScheme {
         return pC;
     }
 
+    ISAtom *evalType(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+
+        if (getListLen(pls) != 1) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'type' requires one operand";
+            deleteList(pls, "evalType 1");
+            return pRes;
+        }
+        pRes->t = ISAtom::TokType::SYMBOL;
+        pRes->vals = tokTypeNames[pls->t];
+        deleteList(pls, "evalType 2");
+        return pRes;
+    }
+
     ISAtom *evalEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
-        if (getRawListLen(pisa) < 1) {
+        if (getListLen(pisa) < 1) {
             ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'eval' requires at least 1 operand: <expr> [<expr>]...";
@@ -1640,7 +1664,117 @@ class IndraScheme {
         return pResS;
     }
 
-    ISAtom *listLength(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+    ISAtom *stringSubstring(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        int r1 = 0, r2;
+
+        // print(pls, local_symbols, ISAtom::DecorType::UNICODE, true);
+        // cout << " len=" << getListLen(pls) << endl;
+
+        if (getListLen(pls) == 3 && pls->t == ISAtom::TokType::STRING && pls->pNext->t == ISAtom::TokType::INT && pls->pNext->pNext->t == ISAtom::TokType::INT) {
+            r1 = pls->pNext->val;
+            r2 = pls->pNext->pNext->val;
+        } else if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::STRING && pls->pNext->t == ISAtom::TokType::INT) {
+            r2 = pls->pNext->val;
+        } else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'substring' requires a string and one or two INT operands, got " + std::to_string(getListLen(pls));
+            deleteList(pls, "listSubstring 1");
+            return pRes;
+        }
+        if (r1 < 0 || r2 < 0 || r1 >= pls->vals.length() || r1 + r2 > pls->vals.length()) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'substring' index out of range";
+            deleteList(pls, "listSubstring 2");
+            return pRes;
+        }
+        pRes->t = ISAtom::TokType::STRING;
+        pRes->vals = pls->vals.substr(r1, r2);
+        deleteList(pls, "listSubstring 3");
+        return pRes;
+    }
+
+    ISAtom *stringSplitstring(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+
+        string splitter;
+        if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::STRING && pls->pNext->t == ISAtom::TokType::STRING) {
+            splitter = pls->pNext->vals;
+        } else if (getListLen(pls) == 1 && pls->t == ISAtom::TokType::STRING) {
+            splitter = "";
+        } else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'splitstring' requires one or two string arguments";
+            deleteList(pls, "splitstring 1");
+            return pRes;
+        }
+        deleteList(pRes, "splitstring 2");
+        string source = pls->vals;
+        deleteList(pls, "splitstring 3");
+        cout << "Source: " << source << ", splitter: " << splitter << endl;
+        pRes = gca();
+        pRes->t = ISAtom::TokType::BRANCH;
+        ISAtom *p = pRes;
+        bool first = true;
+        if (splitter == "") {
+            for (int i = 0; i < source.length(); i++) {
+                string split = source.substr(i, 1);
+                if (first) {
+                    first = false;
+                    p->pChild = gca();
+                    p = p->pChild;
+                } else {
+                    p->pNext = gca();
+                    p = p->pNext;
+                }
+                p->t = ISAtom::TokType::STRING;
+                p->vals = split;
+            }
+        } else {
+            int index;
+            while ((index = source.find(splitter)) != std::string::npos) {
+                if (index == 0) {
+                    source = source.substr(splitter.length());
+                    continue;
+                }
+                if (first) {
+                    first = false;
+                    p->pChild = gca();
+                    p = p->pChild;
+                } else {
+                    p->pNext = gca();
+                    p = p->pNext;
+                }
+                p->t = ISAtom::TokType::STRING;
+                p->vals = source.substr(0, index);
+                source = source.substr(index + splitter.length());
+            }
+            if (source != "") {
+                if (first) {
+                    first = false;
+                    p->pChild = gca();
+                    p = p->pChild;
+                } else {
+                    p->pNext = gca();
+                    p = p->pNext;
+                }
+                p->t = ISAtom::TokType::STRING;
+                p->vals = source;
+            }
+        }
+
+        if (first) {
+            p->pChild = gca();
+        } else {
+            p->pNext = gca();
+        }
+        return pRes;
+    }
+
+    ISAtom *
+    listLength(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *p = (ISAtom *)pisa;
 
