@@ -573,7 +573,11 @@ class IndraScheme {
         }
         if (pisa->pChild != nullptr) {
             out += stringify(pisa->pChild, local_symbols, decor, bAutoSeparators);
-            out += ")";
+            if (out.length() > 0 && out[out.length() - 1] == ' ') {
+                out[out.length() - 1] = ')';
+            } else {
+                out += ")";
+            }
         }
         if (pN != nullptr) {
             if (bAutoSeparators && pN->t != ISAtom::TokType::QUOTE) {

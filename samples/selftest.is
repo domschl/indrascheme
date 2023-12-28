@@ -51,7 +51,7 @@
 
 (let ((t '(a b c)))
     (if (and 
-            (== (stringify (cons (car t) (cdr t))) "(a b c )")
+            (== (stringify (cons (car t) (cdr t))) "(a b c)")
             #t
             ;(== (length (stringify (cons (car t) (cdr t)))) (length t))
         )   
