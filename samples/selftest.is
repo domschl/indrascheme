@@ -35,6 +35,15 @@
     )
 )
 
+; types
+(if (== (convtype "1" 'Int) 1)
+    (print "Convtype OK\n")
+    (begin 
+        (print "Failure on convtype str->int Error\n") 
+        (define err_count (+ err_count 1))
+    )
+)
+
 ; Lists
 (let ((r (range 4)) (sum 0))
     (every 
@@ -109,6 +118,31 @@
     (print "string test add OK\n")
     (begin
         (print "Failure on string test add\n")
+        (define err_count (+ err_count 1))
+    )
+)
+
+(define (join stringlist)
+    (let ((js ""))
+        (every (lambda (x) (set! js (+ js x))) stringlist)
+        js
+    )
+)
+
+(let ((test "Hello, world!"))
+    (if (== test (join (splitstring test)))
+        (print "string split-join OK\n")
+        (begin
+            (print "Failure on string split-join: " test "->" (join (splitstring test))  "\n")
+            (define err_count (+ err_count 1))
+        )
+    )
+)
+
+(if (== (join '("a" "b")) "ab")
+    (print "string join manual list OK\n")
+    (begin
+        (print "Failure on string join manual list\n")
         (define err_count (+ err_count 1))
     )
 )

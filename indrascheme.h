@@ -1609,7 +1609,7 @@ class IndraScheme {
         ISAtom *pL = eval(pisa->pNext, local_symbols);
         if (pL->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'evalEvery' requires a list as 2nd operand";
+            pRes->vals = "'evalEvery' requires a list as 2nd operand, got: " + tokTypeNames[pL->t] + " " + pL->vals;
             deleteList(pL, "evalEvery 1");
             return pRes;
         }
@@ -1708,8 +1708,8 @@ class IndraScheme {
         }
         ISAtom *source = gca(pls);
         if (pls->pChild) source->pChild = copyList(pls->pChild);
-        deleteList(pls, "evalType 3");
-        //     vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "List", "Invalid: internal error"};
+        deleteList(pls, "convType 3");
+        //     vector<string>  = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "List", "Invalid: internal error"};
         pRes->t = ISAtom::TokType::ERROR;
         pRes->vals = "Not implemented: conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
 
@@ -1931,6 +1931,7 @@ class IndraScheme {
                 pRes->vals = stringify(source, local_symbols, ISAtom::DecorType::NONE, true);
                 break;
             case ISAtom::TokType::LIST:
+                deleteList(pRes, "convType 4");
                 pRes = copyList(source);
                 break;
             default:
@@ -1940,9 +1941,11 @@ class IndraScheme {
             }
             break;
         default:
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Invalid conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
             break;
         }
-        deleteList(source, "convtype");
+        deleteList(source, "convtype 5");
         return pRes;
     }
 
@@ -2079,7 +2082,7 @@ class IndraScheme {
         deleteList(pRes, "splitstring 2");
         string source = pls->vals;
         deleteList(pls, "splitstring 3");
-        cout << "Source: " << source << ", splitter: " << splitter << endl;
+        // cout << "Source: " << source << ", splitter: " << splitter << endl;
         pRes = gca();
         pRes->t = ISAtom::TokType::LIST;
         ISAtom *p = pRes;
@@ -2658,17 +2661,19 @@ class IndraScheme {
         vector<string> localNames;
         int n = 0;
         bool err = false;
-        /*
-        cout << "InputData: ";
-        print(input_data, local_symbols, ISAtom::DecorType::UNICODE, true);
-        cout << endl;
-        cout << "pvars: ";
-        print(pvars, local_symbols, ISAtom::DecorType::UNICODE, true);
-        cout << endl;
-        cout << "pfunc: ";
-        print(pfunc, local_symbols, ISAtom::DecorType::UNICODE, true);
-        cout << endl;
-        */
+
+        bool bDebugParams = false;
+        if (bDebugParams) {
+            cout << "InputData: ";
+            print(input_data, local_symbols, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
+            cout << "pvars: ";
+            print(pvars, local_symbols, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
+            cout << "pfunc: ";
+            print(pfunc, local_symbols, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
+        }
         while (pNa && !err) {
             if (pNa->t == ISAtom::TokType::NIL) break;
             if (pNa->t == ISAtom::TokType::SYMBOL) {
@@ -2699,8 +2704,11 @@ class IndraScheme {
         const ISAtom *pInp = input_data;
         for (auto var_name : localNames) {
             // General Quote-is-pNext mess:
-            if (pInp->t == ISAtom::TokType::QUOTE) pInp = pInp->pNext;
-
+            bool bQuoted = false;
+            if (pInp->t == ISAtom::TokType::QUOTE) {
+                pInp = pInp->pNext;
+                bQuoted = true;
+            }
             ISAtom *pS = gca(pInp);
             if (pInp->pChild) pS->pChild = copyList(pInp->pChild);
             pS->pNext = gca();
@@ -2716,6 +2724,10 @@ class IndraScheme {
                     bDoEval = false;
                     // cout << "Not evaluating indirect function: " << func_name << endl;
                 }
+            }
+            if (bQuoted) {
+                bDoEval = false;
+                // cout << "BUGGY?"; Probably not...
             }
             ISAtom *pT;
             if (bDoEval)
@@ -2761,6 +2773,8 @@ class IndraScheme {
         switch (p->t) {
         case ISAtom::TokType::QUOTE:
             pRet = copyList(pN);
+            // pRet = copyList(p);
+            // cout << "BUGGY?";
             return pRet;
             break;
         case ISAtom::TokType::LIST:
