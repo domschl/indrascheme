@@ -166,7 +166,7 @@ class IndraScheme {
         inbuilts["sublist"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listSublist(pisa, local_symbols); };
         inbuilts["splitstring"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringSplitstring(pisa, local_symbols); };
         inbuilts["substring"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringSubstring(pisa, local_symbols); };
-        // inbuilts["find"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalFind(pisa, local_symbols); };
+        inbuilts["find"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalFind(pisa, local_symbols); };
 
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
         inbuilts["type"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalType(pisa, local_symbols); };
@@ -1695,10 +1695,68 @@ class IndraScheme {
         return pResS;
     }
 
+    ISAtom *evalFind(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (getListLen(pls) != 2 || ((pls->t != ISAtom::TokType::STRING || pls->pNext->t != ISAtom::TokType::STRING) && pls->t != ISAtom::TokType::BRANCH) || pls->pNext->t == ISAtom::TokType::BRANCH) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'find' two parameters: a STRING or LIST followed by an atom (not at list) which has to be a STRING, if first param is STRING";
+            deleteList(pls, "evalFind 1");
+            return pRes;
+        }
+        if (pls->t == ISAtom::TokType::STRING) {
+            string source = pls->vals;
+            string token = pls->pNext->vals;
+            deleteList(pls, "evalFind 2");
+            int index = source.find(token);
+            if (index == source.npos) {  // NIL
+                // nothing
+            } else {
+                pRes->t = ISAtom::TokType::INT;
+                pRes->val = index;
+            }
+            return pRes;
+        } else {
+            ISAtom *source = pls->pChild;
+            ISAtom *token = pls->pNext;
+            int index = 0;
+            bool found = false;
+            while (source && !found) {
+                if (source->t == token->t) {
+                    switch (source->t) {
+                    case ISAtom::TokType::BOOLEAN:
+                    case ISAtom::TokType::INT:
+                        if (source->val == token->val) found = true;
+                        break;
+                        if (source->val == token->val) found = true;
+                        break;
+                    case ISAtom::TokType::FLOAT:
+                        if (source->valf == token->valf) found = true;
+                        break;
+                    case ISAtom::TokType::SYMBOL:
+                    case ISAtom::TokType::STRING:
+                        if (source->vals == token->vals) found = true;
+                        break;
+                    }
+                }
+                if (!found) index++;
+                source = source->pNext;
+            }
+            deleteList(pls, "evalFind 2");
+            if (!found) {  // NIL
+                // nothing
+            } else {
+                pRes->t = ISAtom::TokType::INT;
+                pRes->val = index;
+            }
+            return pRes;
+        }
+    }
+
     ISAtom *stringSubstring(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *pls = chainEval(pisa, local_symbols, true);
-        int r1 = 0, r2;
+        int r1 = 0, r2 = 0;
 
         // print(pls, local_symbols, ISAtom::DecorType::UNICODE, true);
         // cout << " len=" << getListLen(pls) << endl;
@@ -1707,10 +1765,13 @@ class IndraScheme {
             r1 = pls->pNext->val;
             r2 = pls->pNext->pNext->val;
         } else if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::STRING && pls->pNext->t == ISAtom::TokType::INT) {
-            r2 = pls->pNext->val;
+            r1 = pls->pNext->val;
         } else {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'substring' requires a string and one or two INT operands, got " + std::to_string(getListLen(pls));
+            cout << endl;
+            print(pls, local_symbols, ISAtom::DecorType::UNICODE, true);
+            cout << endl;
             deleteList(pls, "listSubstring 1");
             return pRes;
         }
@@ -1721,7 +1782,10 @@ class IndraScheme {
             return pRes;
         }
         pRes->t = ISAtom::TokType::STRING;
-        pRes->vals = pls->vals.substr(r1, r2);
+        if (r2 != 0)
+            pRes->vals = pls->vals.substr(r1, r2);
+        else
+            pRes->vals = pls->vals.substr(r1);
         deleteList(pls, "listSubstring 3");
         return pRes;
     }
