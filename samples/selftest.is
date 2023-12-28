@@ -188,6 +188,21 @@
     )
 )
 
+(let ((l1 '(1 2 3)) (l2 '(3 4 5)))
+    (let ((sum 0))
+        (every (lambda (x) (set! sum (+ sum x)))
+            (map * l1 l2)
+        )
+        (if (== sum 26) 
+            (print "Lambda mapper OK\n")
+            (begin 
+                (print "Lambda mapper failed: sum=" sum "\n")
+                (define err_count (+ err_count 1))
+            )
+        )
+    )
+)
+
 (if (> err_count 0) 
     (print "Self-test failed with " err_count " errors") 
     (print "Self-test ok!"))

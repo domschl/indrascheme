@@ -177,7 +177,7 @@ class IndraScheme {
         inbuilts["convtype"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalConvtype(pisa, local_symbols); };
 
         inbuilts["every"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEvery(pisa, local_symbols); };
-        // inbuilts["map"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalMap(pisa, local_symbols); };
+        inbuilts["map"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalMap(pisa, local_symbols); };
     }
 
     ISAtom *gca(const ISAtom *src = nullptr, bool bRegister = true) {
@@ -1634,32 +1634,98 @@ class IndraScheme {
             pFi->pChild->pNext->pNext->t = ISAtom::TokType::NIL;
             ISAtom *pR = eval(pFi, local_symbols);
             if (first) {
-                // pCn->pChild = gca(pR);
-                // if (pR->pChild) pCn->pChild->pChild = copyList(pR->pChild);
-                // deleteList(pR, "evalEvery-Res1");
                 pCn->pChild = pR;
-
                 pCn = pCn->pChild;
                 first = false;
             } else {
-                // pCn->pNext = gca(pR);
-                // if (pR->pChild) pCn->pNext->pChild = copyList(pR->pChild);
-                // deleteList(pR, "evalEvery-Res2");
                 pCn->pNext = pR;
                 pCn = pCn->pNext;
             }
             deleteList(pFi, "eval every 2");
             p = p->pNext;
         }
-        if (!first) {
-            // strange:
-            // pCn = gca();
-            // pCn->t = ISAtom::TokType::NIL;
-        } else {
+        if (first) {
             pC->pChild = gca();
         }
         deleteList(pL, "eval every 3");
         deleteList(pRes, "eval every 4");
+        return pC;
+    }
+
+    ISAtom *evalMap(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        int rawNumArgs = getListLen(pisa);
+        if (rawNumArgs < 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'evalMap' requires at least 2 operands";
+            return pRes;
+        }
+        ISAtom *pls = chainEval(pisa->pNext, local_symbols, true);
+        ISAtom *p = pls;
+        int arg_len = -1;
+        vector<ISAtom *> pParams;
+        for (int i = 0; i < rawNumArgs - 1; i++) {
+            if (p->t != ISAtom::TokType::LIST) {
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "'evalMap' requires a list as 2nd and following operand, got: " + tokTypeNames[p->t] + " " + p->vals;
+                deleteList(pls, "evalMap 1");
+                return pRes;
+            }
+            if (i == 0)
+                arg_len = getListLen(p->pChild);
+            else {
+                if (arg_len != getListLen(p->pChild)) {
+                    pRes->t = ISAtom::TokType::ERROR;
+                    pRes->vals = "'evalMap' requires a lists as 2nd and following operand of equal size, got sizes: " + std::to_string(arg_len) + ", " + std::to_string(getListLen(p));
+                    deleteList(pls, "evalMap 1");
+                    return pRes;
+                }
+            }
+            pParams.push_back(p->pChild);
+            p = p->pNext;
+        }
+
+        int parmCnt = pParams.size();
+        ISAtom *pFi, *pC, *pCn, *pParamI;
+        pC = gca();
+        pC->t = ISAtom::TokType::LIST;
+        pCn = pC;
+        bool first = true;
+
+        for (int i = 0; i < arg_len; i++) {
+            pFi = gca();
+            pFi->t = ISAtom::TokType::LIST;
+            pFi->pChild = gca(pisa);
+            if (pisa->pChild) pFi->pChild->pChild = copyList(pisa->pChild);
+            pParamI = pFi->pChild;
+            for (int j = 0; j < parmCnt; j++) {
+                pParamI->pNext = gca(pParams[j]);
+                if (pParams[j]->pChild) pParamI->pNext->pChild = copyList(pParams[j]->pChild);
+                pParams[j] = pParams[j]->pNext;
+                pParamI = pParamI->pNext;
+            }
+            bool bShowMap = false;
+            if (bShowMap) {
+                cout << "EI" << i << " ";
+                print(pFi, local_symbols, ISAtom::DecorType::UNICODE, true);
+                cout << endl;
+            }
+            ISAtom *pR = eval(pFi, local_symbols);
+            if (first) {
+                pCn->pChild = pR;
+                pCn = pCn->pChild;
+                first = false;
+            } else {
+                pCn->pNext = pR;
+                pCn = pCn->pNext;
+            }
+            deleteList(pFi, "eval map 2");
+        }
+        if (first) {
+            pC->pChild = gca();
+        }
+        deleteList(pls, "eval map 3");
+        deleteList(pRes, "eval map 4");
         return pC;
     }
 
