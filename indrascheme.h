@@ -550,6 +550,10 @@ class IndraScheme {
     }
 
     void print(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, ISAtom::DecorType decor, bool bAutoSeparators) {
+        if (!pisa) {
+            cout << "NULLPTR!";
+            return;
+        }
         string out = pisa->str(decor);
         ISAtom *pN = pisa->pNext;
         if (decor) {
@@ -1513,6 +1517,9 @@ class IndraScheme {
                 deleteList(pLast, "while 6");
                 return pRes;
             }
+        }
+        if (pLast == nullptr) {
+            pLast = gca();
         }
         deleteList(pC, "while 7");
         deleteList(pCR, "while 8");
@@ -2903,6 +2910,13 @@ class IndraScheme {
         ISAtom *p = (ISAtom *)pisa;
         pN = p->pNext;
 
+        bool bShowEval = false;
+        if (bShowEval) {
+            cout << "Eval: ";
+            print(pisa, local_symbols, ISAtom::DecorType::NONE, true);
+            cout << endl;
+        }
+
         switch (p->t) {
         case ISAtom::TokType::QUOTE:
             pRet = copyList(pN);
@@ -2918,7 +2932,19 @@ class IndraScheme {
                 deleteList(pvars, "LIST-LAMBDA");
             } else {
                 pRet = eval(pisa->pChild, local_symbols, true);
+                if (!pRet) {
+                    cout << "EVAL returned nulltpr! ";
+                    print(pisa, local_symbols, ISAtom::DecorType::UNICODE, true);
+                    cout << endl;
+                }
             }
+
+            if (bShowEval && pRet) {
+                cout << " = ";
+                print(pRet, local_symbols, ISAtom::DecorType::NONE, true);
+                cout << endl;
+            }
+
             return pRet;
             break;
         case ISAtom::TokType::SYMBOL:
@@ -2981,8 +3007,7 @@ class IndraScheme {
         }
     }
 
-    ISAtom *
-    chainEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool bChainResult) {
+    ISAtom *chainEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool bChainResult) {
         size_t start_index = gc_size();
 
         ISAtom *p = (ISAtom *)pisa, *pi, *pn;
