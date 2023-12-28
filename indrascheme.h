@@ -148,6 +148,7 @@ class IndraScheme {
         inbuilts["if"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalIf(pisa, local_symbols); };
         inbuilts["while"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
         inbuilts["print"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
+        inbuilts["indentedstringify"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalIndentedStringify(pisa, local_symbols); };
         inbuilts["stringify"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalStringify(pisa, local_symbols); };
         inbuilts["listfunc"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalListfunc(pisa, local_symbols); };
         inbuilts["load"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalLoad(pisa, local_symbols); };
@@ -564,26 +565,42 @@ class IndraScheme {
         }
     }
 
-    string stringify(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, ISAtom::DecorType decor, bool bAutoSeparators) {
+    string _indent(int tab_size, int level) {
+        string s = "";
+        if (tab_size > 0 /*&& ((level + 1) % 2) == 0*/) {
+            s += "\n";
+            for (int i = 0; i < level; i++) {
+                for (int j = 0; j < tab_size; j++)
+                    s += " ";
+            }
+        }
+        return s;
+    }
+
+    string stringify(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, ISAtom::DecorType decor, bool bAutoSeparators, int tab_size = 0, int level = 0) {
         string out = pisa->str(decor);
         ISAtom *pN = pisa->pNext;
         if (decor) {
-            if (is_inbuilt(pisa->vals) || is_defined_func(pisa->vals)) out = "ⓕ " + out;
-            if (is_defined_symbol(pisa->vals, local_symbols)) out = "ⓢ " + out;
+            if (is_inbuilt(pisa->vals) || is_defined_func(pisa->vals))
+                out = "ⓕ " + out;
+            else if (is_defined_symbol(pisa->vals, local_symbols))
+                out = "ⓢ " + out;
         }
         if (pisa->pChild != nullptr) {
-            out += stringify(pisa->pChild, local_symbols, decor, bAutoSeparators);
+            // out += _indent(tab_size, level);
+            out += stringify(pisa->pChild, local_symbols, decor, bAutoSeparators, tab_size, level + 1);
             if (out.length() > 0 && out[out.length() - 1] == ' ') {
                 out[out.length() - 1] = ')';
             } else {
                 out += ")";
             }
+            out += _indent(tab_size, level);
         }
         if (pN != nullptr) {
             if (bAutoSeparators && pN->t != ISAtom::TokType::QUOTE) {
                 if (pisa->t != ISAtom::TokType::QUOTE) out += " ";
             }
-            out += stringify(pN, local_symbols, decor, bAutoSeparators);
+            out += stringify(pN, local_symbols, decor, bAutoSeparators, tab_size, level);
         }
         return out;
     }
@@ -1515,17 +1532,33 @@ class IndraScheme {
         return pResS;
     }
 
-    ISAtom *evalStringify(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
-        // ISAtom *pisa = copyList(pisa_o);
-        if (getListLen(pisa) < 1) {
+    ISAtom *evalIndentedStringify(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (getListLen(pls) < 2 || pls->t != ISAtom::TokType::INT) {
             ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'stringify' requires at least 1 operand: <expr> [<expr>]...";
+            pRes->vals = "'stringify' requires at least 2 operands, an INT tab-size for indentation and expression(s): <expr> [expr...]";
             return pRes;
         }
-        ISAtom *pResS = chainEval(pisa, local_symbols, true);
-        string st = stringify(pResS, local_symbols, ISAtom::DecorType::NONE, true);
-        deleteList(pResS, "evalStringify 1");
+        int tab_size = pls->val;
+        string st = stringify(pls->pNext, local_symbols, ISAtom::DecorType::NONE, true, tab_size);
+        deleteList(pls, "evalStringify 1");
+        ISAtom *pRes = gca();
+        pRes->t = ISAtom::TokType::STRING;
+        pRes->vals = st;
+        return pRes;
+    }
+
+    ISAtom *evalStringify(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (getListLen(pls) < 1) {
+            ISAtom *pRes = gca();
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'stringify' requires at least 1 operand: <expr> [expr...]";
+            return pRes;
+        }
+        string st = stringify(pls, local_symbols, ISAtom::DecorType::NONE, true);
+        deleteList(pls, "evalStringify 1");
         ISAtom *pRes = gca();
         pRes->t = ISAtom::TokType::STRING;
         pRes->vals = st;
@@ -1533,33 +1566,27 @@ class IndraScheme {
     }
 
     ISAtom *evalListfunc(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
         ISAtom *pRes = gca();
-        if (getListLen(pisa) < 1) {
-            ISAtom *pRes = gca();
+        if (getListLen(pls) < 1 || (pls->t != ISAtom::TokType::STRING && pls->t != ISAtom::TokType::SYMBOL) || (getListLen(pls) == 2 && pls->pNext->t != ISAtom::TokType::INT) ||
+            (getListLen(pls) > 2)) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'listfunc' requires at least 1 operand: <expr> [<expr>]...";
+            pRes->vals = "'listfunc' requires at STRING or (quoted) SYMBOL function name and an optional INT tab_size for indentation";
+            deleteList(pls, "listfunc 1");
             return pRes;
         }
-        ISAtom *pP;
-        if (pisa->t == ISAtom::TokType::STRING || pisa->t == ISAtom::TokType::SYMBOL) {
-            pP = copyList(pisa);
-        } else {
-            pP = chainEval(pisa, local_symbols, true);
-            if (pP->t != ISAtom::TokType::STRING && pP->t != ISAtom::TokType::SYMBOL) {
-                pRes->t = ISAtom::TokType::ERROR;
-                pRes->vals = "'listfunc' requires a string that is a function name";
-                deleteList(pP, "Listfunc 0");
-                return pRes;
-            }
-        }
-        string funcname = pP->vals;
-        deleteList(pP, "Listfunc 1");
+        string funcname = pls->vals;
+        int tab_size = 0;
+        if (getListLen(pls) == 2) tab_size = pls->pNext->val;
+        deleteList(pls, "Listfunc 2");
         if (!is_defined_func(funcname)) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'listfunc' function >" + funcname + "< is not defined";
             return pRes;
         }
-        string listfunc = stringify(funcs[funcname], local_symbols, ISAtom::DecorType::NONE, true);
+        string listfunc = stringify(funcs[funcname], local_symbols, ISAtom::DecorType::NONE, true, tab_size);
+        while (listfunc.length() > 0 and listfunc[listfunc.length() - 1] == ' ')
+            listfunc = listfunc.substr(0, listfunc.length() - 1);  // remove trailing spaces
         pRes->t = ISAtom::TokType::STRING;
         pRes->vals = listfunc;
         return pRes;
