@@ -11,6 +11,59 @@
     )
 )
 
+; Factorial (recursion)
+(define (factorial n) 
+    (if (== n 0) 
+        1 
+        (* n (factorial (- n 1)))))
+
+(if (== (factorial 4) 24) 
+    (print "Factorial test OK\n")
+    (begin 
+        (print "Failure calculating Factorial\n") 
+        (define err_count (+ err_count 1))
+    )
+)
+
+; Lists
+(let ((r (range 4)) (sum 0))
+    (every 
+        (lambda (x) (set! sum (+ sum x)))
+        r
+    )
+    (if (== sum 6)
+        (print "Range-sum test OK\n")
+        (begin 
+            (print "Failure calculating Range-sum " sum 6 "\n") 
+            (define err_count (+ err_count 1))
+        )
+    )
+)
+
+(if (== (car (cdr (cdr (cdr (list 'a 'b 'c 'd 'e))))) 'd)
+    (print "car-cdr test OK\n")
+    (begin 
+        (print "Failure on car-cdr\n")
+        (print (car (cdr (cdr (cdr (list 'a 'b 'c 'd 'e))))) 'd)
+        (define err_count (+ err_count 1))
+    )
+)
+
+(let ((t '(a b c)))
+    (if (and 
+            (== (stringify (cons (car t) (cdr t))) "(a b c )")
+            #t
+            ;(== (length (stringify (cons (car t) (cdr t)))) (length t))
+        )   
+        (print "stringify-cons-car-cdr test OK\n")
+        (begin 
+            (print "Failure on stringify-cons-car-cdr\n")
+            (print (stringify (cons (car t) (cdr t))))
+            (define err_count (+ err_count 1))
+        )
+    )
+)
+
 ; Lambda stuff
 (if (== ((lambda (x) (+ x 7)) 8) 15) 
     (print "Lambda var1 OK\n") 
