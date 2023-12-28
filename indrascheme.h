@@ -167,6 +167,9 @@ class IndraScheme {
         inbuilts["sublist"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return listSublist(pisa, local_symbols); };
         inbuilts["splitstring"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringSplitstring(pisa, local_symbols); };
         inbuilts["substring"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringSubstring(pisa, local_symbols); };
+        inbuilts["lowercase"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringLowercase(pisa, local_symbols); };
+        inbuilts["uppercase"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringUppercase(pisa, local_symbols); };
+        inbuilts["replacestring"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return stringReplace(pisa, local_symbols); };
         inbuilts["find"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalFind(pisa, local_symbols); };
 
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
@@ -2142,8 +2145,72 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *
-    listLength(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+    ISAtom *stringLowercase(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (getListLen(pls) != 1 || pls->t != ISAtom::TokType::STRING) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'lowercase' requires a string";
+            deleteList(pls, "lowercase 1");
+            return pRes;
+        }
+        pRes->t = ISAtom::TokType::STRING;
+        pRes->vals = "";
+        for (auto c : pls->vals) {
+            pRes->vals += tolower(c);
+        }
+        deleteList(pls, "lowercase 2");
+        return pRes;
+    }
+
+    ISAtom *stringUppercase(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+        if (getListLen(pls) != 1 || pls->t != ISAtom::TokType::STRING) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'uppercase' requires a string";
+            deleteList(pls, "uppercase 1");
+            return pRes;
+        }
+        pRes->t = ISAtom::TokType::STRING;
+        pRes->vals = "";
+        for (auto c : pls->vals) {
+            pRes->vals += toupper(c);
+        }
+        deleteList(pls, "uppercase 2");
+        return pRes;
+    }
+
+    ISAtom *stringReplace(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+
+        string source, from_tok, to_tok;
+        if (getListLen(pls) == 3 && pls->t == ISAtom::TokType::STRING && pls->pNext->t == ISAtom::TokType::STRING && pls->pNext->pNext->t == ISAtom::TokType::STRING && pls->pNext->vals.length() > 0) {
+            source = pls->vals;
+            from_tok = pls->pNext->vals;
+            to_tok = pls->pNext->pNext->vals;
+        } else {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'replacestring' requires three string arguments, second (from_tok) must be length>0";
+            deleteList(pls, "replacestring 1");
+            return pRes;
+        }
+        deleteList(pls, "splitstring 2");
+
+        pRes->t = ISAtom::TokType::STRING;
+        pRes->vals = "";
+        int index = source.find(from_tok);
+        while (index != source.npos) {
+            pRes->vals += source.substr(0, index) + to_tok;
+            source = source.substr(index + from_tok.length());
+            index = source.find(from_tok);
+        }
+        pRes->vals += source;
+        return pRes;
+    }
+
+    ISAtom *listLength(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *p = (ISAtom *)pisa;
 
