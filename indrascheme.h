@@ -23,7 +23,8 @@ class ISAtom {
                    BOOLEAN,
                    SYMBOL,
                    QUOTE,
-                   BRANCH };
+                   LIST,
+                   INVALID };
     enum DecorType { NONE = 0,
                      ASCII = 1,
                      UNICODE = 2 };
@@ -60,7 +61,7 @@ class ISAtom {
         case ISAtom::TokType::ERROR:
             out = "<Error: " + vals + ">";
             break;
-        case ISAtom::TokType::BRANCH:
+        case ISAtom::TokType::LIST:
             out = "(";
             break;
         case ISAtom::TokType::INT:
@@ -127,7 +128,7 @@ class IndraScheme {
     map<string, std::function<ISAtom *(ISAtom *, vector<map<string, ISAtom *>> &)>> inbuilts;
     map<string, ISAtom *> symbols;
     map<string, ISAtom *> funcs;
-    vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "List"};
+    vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "List", "Invalid: internal error"};
     map<ISAtom *, size_t> gctr;
     bool memDbg = true;
 
@@ -170,7 +171,7 @@ class IndraScheme {
 
         inbuilts["eval"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEval(pisa, local_symbols); };
         inbuilts["type"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalType(pisa, local_symbols); };
-        // inbuilts["convtype"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalConvtype(pisa, local_symbols); };
+        inbuilts["convtype"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalConvtype(pisa, local_symbols); };
 
         inbuilts["every"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalEvery(pisa, local_symbols); };
         // inbuilts["map"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalMap(pisa, local_symbols); };
@@ -416,7 +417,7 @@ class IndraScheme {
                     if (curSymbol.length() > 0) {
                         pCurNode = _insert_curSymbol(pCurNode, &curSymbol);
                     }
-                    pCurNode->t = ISAtom::TokType::BRANCH;
+                    pCurNode->t = ISAtom::TokType::LIST;
                     lvl = level + 1;
                     pCurNode->pChild = parse(input, nullptr, lvl);
                     pCurNode->pNext = gca();
@@ -1233,7 +1234,7 @@ class IndraScheme {
             deleteList(pRes, "makeDefine 2");
             return copyList(symbols[pN->vals]);
             break;
-        case ISAtom::TokType::BRANCH:
+        case ISAtom::TokType::LIST:
             pNa = pN->pChild;
             n = 0;
             err = false;
@@ -1299,7 +1300,7 @@ class IndraScheme {
             return pRes;
         }
 
-        if (pisa->t != ISAtom::TokType::BRANCH) {
+        if (pisa->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'let' no primary list: required are a list of key values pairs: ((k v ), ..) [ ()]";
             return pRes;
@@ -1307,7 +1308,7 @@ class IndraScheme {
         local_symbols.push_back({});
         ISAtom *pDef = pisa->pChild;
         while (pDef && pDef->t != ISAtom::TokType::NIL) {
-            if (pDef->t != ISAtom::TokType::BRANCH) {
+            if (pDef->t != ISAtom::TokType::LIST) {
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "'let' list entries must be list: required are a list of key values pairs: ((k v ), ..) [ ()]";
                 for (ISAtom *pA : pAllocs) {
@@ -1606,7 +1607,7 @@ class IndraScheme {
         }
 
         ISAtom *pL = eval(pisa->pNext, local_symbols);
-        if (pL->t != ISAtom::TokType::BRANCH) {
+        if (pL->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'evalEvery' requires a list as 2nd operand";
             deleteList(pL, "evalEvery 1");
@@ -1614,14 +1615,14 @@ class IndraScheme {
         }
         ISAtom *p, *pFi, *pC, *pCn;
         pC = gca();
-        pC->t = ISAtom::TokType::BRANCH;
+        pC->t = ISAtom::TokType::LIST;
         pCn = pC;
         bool first = true;
 
         p = pL->pChild;
         while (p && p->t != ISAtom::TokType::NIL) {
             pFi = gca();
-            pFi->t = ISAtom::TokType::BRANCH;
+            pFi->t = ISAtom::TokType::LIST;
             pFi->pChild = gca(pisa);
             if (pisa->pChild) pFi->pChild->pChild = copyList(pisa->pChild);
             pFi->pChild->pNext = gca(p);
@@ -1659,6 +1660,13 @@ class IndraScheme {
         return pC;
     }
 
+    ISAtom::TokType String2Type(string typestring) {
+        for (int i = 0; i < tokTypeNames.size() - 1; i++) {
+            if (tokTypeNames[i] == typestring) return (ISAtom::TokType)i;
+        }
+        return ISAtom::TokType::INVALID;
+    }
+
     ISAtom *evalType(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *pls = chainEval(pisa, local_symbols, true);
@@ -1672,6 +1680,269 @@ class IndraScheme {
         pRes->t = ISAtom::TokType::SYMBOL;
         pRes->vals = tokTypeNames[pls->t];
         deleteList(pls, "evalType 2");
+        return pRes;
+    }
+
+    ISAtom *evalConvtype(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+        ISAtom *pRes = gca();
+        ISAtom *pls = chainEval(pisa, local_symbols, true);
+
+        if (getListLen(pls) != 2 || (pls->pNext->t != ISAtom::TokType::STRING && pls->pNext->t != ISAtom::TokType::SYMBOL)) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'convtype' requires two operand, second needs to be a type, valid types are: ";
+            for (int i = 0; i < tokTypeNames.size() - 1; i++) {
+                pRes->vals += "'" + tokTypeNames[i] + " ";
+            }
+            deleteList(pls, "evalConvtype 1");
+            return pRes;
+        }
+        ISAtom::TokType dest_type = String2Type(pls->pNext->vals);
+        if (dest_type == ISAtom::TokType::INVALID) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'convtype' destination type: " + pls->pNext->vals + " is invalid. Valid types are: ";
+            for (int i = 0; i < tokTypeNames.size() - 1; i++) {
+                pRes->vals += "'" + tokTypeNames[i] + " ";
+            }
+            deleteList(pls, "evalConvtype 2");
+            return pRes;
+        }
+        ISAtom *source = gca(pls);
+        if (pls->pChild) source->pChild = copyList(pls->pChild);
+        deleteList(pls, "evalType 3");
+        //     vector<string> tokTypeNames = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "List", "Invalid: internal error"};
+        pRes->t = ISAtom::TokType::ERROR;
+        pRes->vals = "Not implemented: conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
+
+        switch (source->t) {
+        case ISAtom::TokType::INT:
+            switch (dest_type) {
+            case ISAtom::TokType::INT:
+                pRes->t = ISAtom::TokType::INT;
+                pRes->val = source->val;
+                break;
+            case ISAtom::TokType::FLOAT:
+                pRes->t = ISAtom::TokType::FLOAT;
+                pRes->valf = source->val;
+                break;
+            case ISAtom::TokType::STRING:
+                pRes->t = ISAtom::TokType::STRING;
+                pRes->vals = std::to_string(source->val);
+                break;
+            case ISAtom::TokType::BOOLEAN:
+                pRes->t = ISAtom::TokType::BOOLEAN;
+                pRes->val = source->val;
+                break;
+            // case ISAtom::TokType::SYMBOL:
+            //     break;
+            // case ISAtom::TokType::ERROR:
+            //     break;
+            case ISAtom::TokType::LIST:
+                pRes->t = ISAtom::TokType::LIST;
+                pRes->pChild = gca();
+                pRes->pChild->t = ISAtom::TokType::INT;
+                pRes->pChild->val = source->val;
+                pRes->pChild->pNext = gca();
+                break;
+            default:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Invalid conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
+                break;
+            }
+            break;
+        case ISAtom::TokType::FLOAT:
+            switch (dest_type) {
+            case ISAtom::TokType::INT:
+                pRes->t = ISAtom::TokType::INT;
+                pRes->val = source->valf;
+                break;
+            case ISAtom::TokType::FLOAT:
+                pRes->t = ISAtom::TokType::FLOAT;
+                pRes->valf = source->valf;
+                break;
+            case ISAtom::TokType::STRING:
+                pRes->t = ISAtom::TokType::STRING;
+                pRes->vals = std::to_string(source->valf);
+                break;
+            case ISAtom::TokType::BOOLEAN:
+                pRes->t = ISAtom::TokType::BOOLEAN;
+                pRes->val = source->valf;
+                break;
+            // case ISAtom::TokType::SYMBOL:
+            //     break;
+            // case ISAtom::TokType::ERROR:
+            //     break;
+            case ISAtom::TokType::LIST:
+                pRes->t = ISAtom::TokType::LIST;
+                pRes->pChild = gca();
+                pRes->pChild->t = ISAtom::TokType::FLOAT;
+                pRes->pChild->valf = source->valf;
+                pRes->pChild->pNext = gca();
+                break;
+            default:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Invalid conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
+                break;
+            }
+            break;
+        case ISAtom::TokType::STRING:
+            switch (dest_type) {
+            case ISAtom::TokType::INT:
+                if (is_int(source->vals)) {
+                    pRes->t = ISAtom::TokType::INT;
+                    pRes->val = atoi(source->vals.c_str());
+                } else {
+                    pRes->t = ISAtom::TokType::ERROR;
+                    pRes->vals = "Invalid conversion " + source->vals + " is not INT convertible";
+                }
+                break;
+            case ISAtom::TokType::FLOAT:
+                if (is_int(source->vals) || is_float(source->vals)) {
+                    pRes->t = ISAtom::TokType::FLOAT;
+                    pRes->valf = atof(source->vals.c_str());
+                } else {
+                    pRes->t = ISAtom::TokType::ERROR;
+                    pRes->vals = "Invalid conversion " + source->vals + " is not FLOAT convertible";
+                }
+                break;
+            case ISAtom::TokType::STRING:
+                pRes->t = ISAtom::TokType::STRING;
+                pRes->vals = source->vals;
+                break;
+            case ISAtom::TokType::BOOLEAN:
+                pRes->t = ISAtom::TokType::BOOLEAN;
+                if (source->vals == "#t")
+                    pRes->val = 1;
+                else if (source->vals == "#f")
+                    pRes->val = 0;
+                else {
+                    pRes->t = ISAtom::TokType::ERROR;
+                    pRes->vals = "Invalid conversion " + source->vals + " is not BOOLEAN convertible";
+                }
+                break;
+            case ISAtom::TokType::SYMBOL:
+                pRes->t = ISAtom::TokType::SYMBOL;
+                pRes->vals = source->vals;
+                break;
+            case ISAtom::TokType::ERROR:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = source->vals;
+                break;
+            case ISAtom::TokType::LIST:
+                pRes->t = ISAtom::TokType::LIST;
+                pRes->pChild = gca();
+                pRes->pChild->t = ISAtom::TokType::STRING;
+                pRes->pChild->vals = source->vals;
+                pRes->pChild->pNext = gca();
+                break;
+            default:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Invalid conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
+                break;
+            }
+            break;
+        case ISAtom::TokType::BOOLEAN:
+            switch (dest_type) {
+            case ISAtom::TokType::INT:
+                pRes->t = ISAtom::TokType::INT;
+                pRes->val = source->val;
+                break;
+            case ISAtom::TokType::FLOAT:
+                pRes->t = ISAtom::TokType::FLOAT;
+                pRes->valf = source->val;
+                break;
+            case ISAtom::TokType::STRING:
+                pRes->t = ISAtom::TokType::STRING;
+                if (source->val)
+                    pRes->vals = "#t";
+                else
+                    pRes->vals = "#f";
+                break;
+            case ISAtom::TokType::BOOLEAN:
+                pRes->t = ISAtom::TokType::BOOLEAN;
+                pRes->val = source->val;
+                break;
+            // case ISAtom::TokType::SYMBOL:
+            //     break;
+            // case ISAtom::TokType::ERROR:
+            //     break;
+            case ISAtom::TokType::LIST:
+                pRes->t = ISAtom::TokType::LIST;
+                pRes->pChild = gca();
+                pRes->pChild->t = ISAtom::TokType::BOOLEAN;
+                pRes->pChild->val = source->val;
+                pRes->pChild->pNext = gca();
+                break;
+            default:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Invalid conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
+                break;
+            }
+            break;
+        case ISAtom::TokType::SYMBOL:
+            switch (dest_type) {
+            case ISAtom::TokType::STRING:
+                pRes->t = ISAtom::TokType::STRING;
+                pRes->vals = source->vals;
+                break;
+            case ISAtom::TokType::SYMBOL:
+                pRes->t = ISAtom::TokType::SYMBOL;
+                pRes->vals = source->vals;
+                break;
+            case ISAtom::TokType::LIST:
+                pRes->t = ISAtom::TokType::LIST;
+                pRes->pChild = gca();
+                pRes->pChild->t = ISAtom::TokType::SYMBOL;
+                pRes->pChild->vals = source->vals;
+                pRes->pChild->pNext = gca();
+                break;
+            default:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Invalid conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
+                break;
+            }
+            break;
+        case ISAtom::TokType::ERROR:
+            switch (dest_type) {
+            case ISAtom::TokType::STRING:
+                pRes->t = ISAtom::TokType::STRING;
+                pRes->vals = source->vals;
+                break;
+            case ISAtom::TokType::ERROR:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = source->vals;
+                break;
+            case ISAtom::TokType::LIST:
+                pRes->t = ISAtom::TokType::LIST;
+                pRes->pChild = gca();
+                pRes->pChild->t = ISAtom::TokType::ERROR;
+                pRes->pChild->vals = source->vals;
+                pRes->pChild->pNext = gca();
+                break;
+            default:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Invalid conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
+                break;
+            }
+            break;
+        case ISAtom::TokType::LIST:
+            switch (dest_type) {
+            case ISAtom::TokType::STRING:
+                pRes->t = ISAtom::TokType::STRING;
+                pRes->vals = stringify(source, local_symbols, ISAtom::DecorType::NONE, true);
+                break;
+            case ISAtom::TokType::LIST:
+                pRes = copyList(source);
+                break;
+            default:
+                pRes->t = ISAtom::TokType::ERROR;
+                pRes->vals = "Invalid conversion " + tokTypeNames[source->t] + " -> " + tokTypeNames[dest_type];
+                break;
+            }
+            break;
+        default:
+            break;
+        }
+        deleteList(source, "convtype");
         return pRes;
     }
 
@@ -1698,7 +1969,7 @@ class IndraScheme {
     ISAtom *evalFind(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         ISAtom *pRes = gca();
         ISAtom *pls = chainEval(pisa, local_symbols, true);
-        if (getListLen(pls) != 2 || ((pls->t != ISAtom::TokType::STRING || pls->pNext->t != ISAtom::TokType::STRING) && pls->t != ISAtom::TokType::BRANCH) || pls->pNext->t == ISAtom::TokType::BRANCH) {
+        if (getListLen(pls) != 2 || ((pls->t != ISAtom::TokType::STRING || pls->pNext->t != ISAtom::TokType::STRING) && pls->t != ISAtom::TokType::LIST) || pls->pNext->t == ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'find' two parameters: a STRING or LIST followed by an atom (not at list) which has to be a STRING, if first param is STRING";
             deleteList(pls, "evalFind 1");
@@ -1810,7 +2081,7 @@ class IndraScheme {
         deleteList(pls, "splitstring 3");
         cout << "Source: " << source << ", splitter: " << splitter << endl;
         pRes = gca();
-        pRes->t = ISAtom::TokType::BRANCH;
+        pRes->t = ISAtom::TokType::LIST;
         ISAtom *p = pRes;
         bool first = true;
         if (splitter == "") {
@@ -1875,7 +2146,7 @@ class IndraScheme {
 
         ISAtom *pls = chainEval(pisa, local_symbols, true);
 
-        if (getListLen(pls) != 1 || pls->t != ISAtom::TokType::BRANCH) {
+        if (getListLen(pls) != 1 || pls->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'len' requires list or quoted list operand, len=" + std::to_string(getListLen(pls)) + ", got type: " + tokTypeNames[pls->t];
             deleteList(pls, "listLen 1");
@@ -1891,7 +2162,7 @@ class IndraScheme {
         ISAtom *pRes = gca();
         ISAtom *pls = chainEval(pisa, local_symbols, true);
 
-        if (getListLen(pls) != 2 || pls->t != ISAtom::TokType::BRANCH || pls->pNext->t != ISAtom::TokType::INT) {
+        if (getListLen(pls) != 2 || pls->t != ISAtom::TokType::LIST || pls->pNext->t != ISAtom::TokType::INT) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'index' requires or quoted list and and integer operand";
             deleteList(pls, "listIndex 1");
@@ -1940,7 +2211,7 @@ class IndraScheme {
         }
         deleteList(pRes, "listRange 2");
         pRes = gca();
-        pRes->t = ISAtom::TokType::BRANCH;
+        pRes->t = ISAtom::TokType::LIST;
         ISAtom *p = pRes;
         bool first = true;
         for (int i = r1; i < r2; i++) {
@@ -1973,10 +2244,10 @@ class IndraScheme {
         // print(pls, local_symbols, ISAtom::DecorType::UNICODE, true);
         // cout << " len=" << getListLen(pls) << endl;
 
-        if (getListLen(pls) == 3 && pls->t == ISAtom::TokType::BRANCH && pls->pNext->t == ISAtom::TokType::INT && pls->pNext->pNext->t == ISAtom::TokType::INT) {
+        if (getListLen(pls) == 3 && pls->t == ISAtom::TokType::LIST && pls->pNext->t == ISAtom::TokType::INT && pls->pNext->pNext->t == ISAtom::TokType::INT) {
             r1 = pls->pNext->val;
             r2 = pls->pNext->pNext->val;
-        } else if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::BRANCH && pls->pNext->t == ISAtom::TokType::INT) {
+        } else if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::LIST && pls->pNext->t == ISAtom::TokType::INT) {
             r2 = pls->pNext->val;
         } else {
             pRes->t = ISAtom::TokType::ERROR;
@@ -1986,7 +2257,7 @@ class IndraScheme {
         }
         deleteList(pRes, "listSublist 2");
         pRes = gca();
-        pRes->t = ISAtom::TokType::BRANCH;
+        pRes->t = ISAtom::TokType::LIST;
         ISAtom *p = pRes;
         bool first = true;
         ISAtom *pS = pls->pChild;
@@ -2030,7 +2301,7 @@ class IndraScheme {
         // pRes->t = ISAtom::TokType::QUOTE;
         // pRes->pNext = gca();
         // pRes = pRes->pNext;
-        pRes->t = ISAtom::TokType::BRANCH;
+        pRes->t = ISAtom::TokType::LIST;
         pRes->pChild = copyList(pls);
         deleteList(pls, "listList 1");
         return pStart;
@@ -2055,7 +2326,7 @@ class IndraScheme {
         //     deleteList(c2, "listCons 1");
         //     c2 = c2_n;
         // }
-        if (c2->t != ISAtom::TokType::BRANCH) {
+        if (c2->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'cons' 2nd arg needs to eval to list (e.g. quoted list)";
             deleteList(c2, "listCons 2");
@@ -2065,7 +2336,7 @@ class IndraScheme {
         // pRes->t = ISAtom::TokType::QUOTE;
         // pRes->pNext = gca();
         // pRes = pRes->pNext;
-        pRes->t = ISAtom::TokType::BRANCH;
+        pRes->t = ISAtom::TokType::LIST;
         pRes->pChild = gca(c1);
         pRes = pRes->pChild;
         if (c1->pChild) pRes->pChild = copyList(c1->pChild);
@@ -2090,7 +2361,7 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *pls = chainEval(pisa, local_symbols, true);
-        if (pls->t != ISAtom::TokType::BRANCH) {
+        if (pls->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'car' requires one arg as list";
             deleteList(pls, "car 1");
@@ -2117,7 +2388,7 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *pls = chainEval(pisa, local_symbols, true);
-        if (pls->t != ISAtom::TokType::BRANCH) {
+        if (pls->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'cdr' requires one arg as list";
             deleteList(pls, "cdr 1");
@@ -2130,7 +2401,7 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *pCdr = gca();
-        pCdr->t = ISAtom::TokType::BRANCH;
+        pCdr->t = ISAtom::TokType::LIST;
         pCdr->pChild = copyList(pls->pChild->pNext);
         deleteList(pRes, "cdr 3");
         deleteList(pls, "cdr 4");
@@ -2151,7 +2422,7 @@ class IndraScheme {
             deleteList(pls, "listAppend 1");
             return pRes;
         }
-        if (pls->t != ISAtom::TokType::BRANCH) {
+        if (pls->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'listAppend' requires first arg to be a list";
             deleteList(pls, "listAppend 2");
@@ -2212,7 +2483,7 @@ class IndraScheme {
             pRes->vals = "'listReverse' (aft. eval) requires one args";
             return pRes;
         }
-        if (pls->t != ISAtom::TokType::BRANCH) {
+        if (pls->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'listReverse' requires first arg to be a list";
             deleteList(pls, "listReverse 2");
@@ -2492,12 +2763,12 @@ class IndraScheme {
             pRet = copyList(pN);
             return pRet;
             break;
-        case ISAtom::TokType::BRANCH:
+        case ISAtom::TokType::LIST:
             if (pisa->pChild->vals == "lambda") {
                 ISAtom *pvars = gca(pisa->pChild->pNext);
                 if (pisa->pChild->pNext->pChild) pvars->pChild = copyList(pisa->pChild->pNext->pChild);
                 pRet = lambda_eval(pisa->pNext, local_symbols, pvars, pisa->pChild->pNext->pNext);
-                deleteList(pvars, "BRANCH-LAMBDA");
+                deleteList(pvars, "LIST-LAMBDA");
             } else {
                 pRet = eval(pisa->pChild, local_symbols, true);
             }
@@ -2603,7 +2874,7 @@ class IndraScheme {
                 }
                 pAllocs.push_back(pCEi);
                 break;
-            case ISAtom::TokType::BRANCH:
+            case ISAtom::TokType::LIST:
                 if (is_quote) {
                     pCEi = copyList(pi);
                     is_quote = false;
