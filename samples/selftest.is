@@ -39,10 +39,14 @@
 )
 
 (define err_count 0)
+(define ok_count 0)
 
 ; There are 25 primes in [2..100]:
 (if (== (length (primes 100)) 25) 
-    (print "100 first primes, OK\n") 
+    (begin
+        (print "100 first primes, OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin 
         (print "Failure calculating 100 first primes\n") 
         (define err_count (+ err_count 1))
@@ -56,7 +60,10 @@
         (* n (factorial (- n 1)))))
 
 (if (== (factorial 4) 24) 
-    (print "Factorial test OK\n")
+    (begin
+        (print "Factorial test OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin 
         (print "Failure calculating Factorial\n") 
         (define err_count (+ err_count 1))
@@ -66,7 +73,10 @@
 ; errors
 
 (if (== (type (/ 1 0)) 'Error)
-    (print "Type-test Error OK\n")
+    (begin
+        (print "Type-test Error OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin 
         (print "Failure on Type-test Error\n") 
         (define err_count (+ err_count 1))
@@ -75,20 +85,39 @@
 
 ; types
 (if (== (convtype "1" 'Int) 1)
-    (print "Convtype OK\n")
-    (begin 
+    (begin
+        (print "Convtype OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
+    (begin
         (print "Failure on convtype str->int Error\n") 
         (define err_count (+ err_count 1))
     )
 )
 
+; (let ((cv '('Int 'Float))) (map (lambda (x) (convtype 1 x)) cv)) 
+
 (if (== ((convtype "+" 'Symbol) 2 3) 5)
-    (print "Convtype indirect function generation OK\n")
+    (begin
+        (print "Convtype indirect function generation OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin 
         (print "Failure on Convtype indirect function generation\n") 
         (define err_count (+ err_count 1))
     )
 )
+
+;(if (== (((convtype "convtype" 'Symbol) "+" 'Symbol) 2 3) 5)
+;    (begin
+;       (print "Convtype 2 x indirect function generation OK\n")
+;        (define ok_count (+ ok_count 1))
+;    ) 
+;    (begin 
+;        (print "Failure on Convtype 2 x indirect function generation\n") 
+;        (define err_count (+ err_count 1))
+;    )
+;)
 
 ; Lists
 (let ((r (range 4)) (sum 0))
@@ -97,7 +126,10 @@
         r
     )
     (if (== sum 6)
-        (print "Range-sum test OK\n")
+        (begin
+            (print "Range-sum test OK\n")
+            (define ok_count (+ ok_count 1))
+        ) 
         (begin 
             (print "Failure calculating Range-sum " sum 6 "\n") 
             (define err_count (+ err_count 1))
@@ -106,7 +138,10 @@
 )
 
 (if (== (car (cdr (cdr (cdr (list 'a 'b 'c 'd 'e))))) 'd)
-    (print "car-cdr test OK\n")
+    (begin
+        (print "car-cdr test OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin 
         (print "Failure on car-cdr\n")
         (print (car (cdr (cdr (cdr (list 'a 'b 'c 'd 'e))))) 'd)
@@ -120,7 +155,10 @@
             #t
             ;(== (length (stringify (cons (car t) (cdr t)))) (length t))
         )   
-        (print "stringify-cons-car-cdr test OK\n")
+        (begin
+            (print "stringify-cons-car-cdr test OK\n")
+            (define ok_count (+ ok_count 1))
+        ) 
         (begin 
             (print "Failure on stringify-cons-car-cdr\n")
             (print (stringify (cons (car t) (cdr t))))
@@ -132,7 +170,10 @@
 (let ((t '(a b c d)) (tok 'c))
     (let ((ind (find t tok)) (res (index t ind)))
         (if (== tok res)
-            (print "find-index test OK\n")
+            (begin
+                (print "find-index test OK\n")
+                (define ok_count (+ ok_count 1))
+            ) 
             (begin 
                 (print "Failure on find-index\n")
                 (print res "<->" tok)
@@ -145,14 +186,20 @@
 ; String stuff
 (let ((s "Hello, world!") (tok "world"))
     (if (== (substring s (find s tok)) "world!")
-        (print "substring test 1 OK\n")
+        (begin
+            (print "substring test 1 OK\n")
+            (define ok_count (+ ok_count 1))
+        ) 
         (begin 
             (print "Failure on substring test 1\n")
             (define err_count (+ err_count 1))
         )
     )
     (if (== (substring s 1 2) "el")
-        (print "substring test 2 OK\n")
+        (begin
+            (print "substring test 2 OK\n")
+            (define ok_count (+ ok_count 1))
+        ) 
         (begin 
             (print "Failure on substring test 2\n")
             (define err_count (+ err_count 1))
@@ -161,7 +208,10 @@
 )
 
 (if (== (+ "Hello," " world!") "Hello, world!")
-    (print "string test add OK\n")
+    (begin
+        (print "string test add OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin
         (print "Failure on string test add\n")
         (define err_count (+ err_count 1))
@@ -177,7 +227,10 @@
 
 (let ((test "Hello, world!"))
     (if (== test (join (splitstring test)))
-        (print "string split-join OK\n")
+        (begin
+            (print "string split-join OK\n")
+            (define ok_count (+ ok_count 1))
+        ) 
         (begin
             (print "Failure on string split-join: " test "->" (join (splitstring test))  "\n")
             (define err_count (+ err_count 1))
@@ -186,7 +239,10 @@
 )
 
 (if (== (join '("a" "b")) "ab")
-    (print "string join manual list OK\n")
+    (begin
+        (print "string join manual list OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin
         (print "Failure on string join manual list\n")
         (define err_count (+ err_count 1))
@@ -195,7 +251,10 @@
 
 ; Lambda stuff
 (if (== ((lambda (x) (+ x 7)) 8) 15) 
-    (print "Lambda var1 OK\n") 
+    (begin
+        (print "Lambda var1 OK\n") 
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin 
         (print "Lambda var1 ERROR\n")
         (define err_count (+ err_count 1))
@@ -203,7 +262,10 @@
 )
 
 (if (== ((lambda (x y) (+ x y 7)) 8 9) 24) 
-    (print "Lambda var2 OK\n") 
+    (begin
+        (print "Lambda var2 OK\n") 
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin 
         (print "Lambda var2 ERROR\n")
         (define err_count (+ err_count 1))
@@ -211,7 +273,10 @@
 )
 
 (if (== ((lambda (x y) (x y 7 8)) '+ 9) 24) 
-    (print "Lambda op-var var1 OK\n") 
+    (begin
+        (print "Lambda op-var var1 OK\n") 
+        (define ok_count (+ ok_count 1))
+    ) 
     (begin 
         (print "Lambda op-var var1 ERROR\n")
         (define err_count (+ err_count 1))
@@ -226,7 +291,10 @@
         )
     )
     (if (== t 1) 
-        (print "While OK\n")
+        (begin
+            (print "While OK\n")
+            (define ok_count (+ ok_count 1))
+        ) 
         (begin 
             (print "While ERROR\n")
             (define err_count (+ err_count 1))
@@ -240,7 +308,10 @@
             (map * l1 l2)
         )
         (if (== sum 26) 
-            (print "Lambda mapper OK\n")
+            (begin
+                (print "Lambda mapper OK\n")
+                (define ok_count (+ ok_count 1))
+            ) 
             (begin 
                 (print "Lambda mapper failed: sum=" sum "\n")
                 (define err_count (+ err_count 1))
@@ -249,6 +320,10 @@
     )
 )
 
+(print "--------------------------------------------\n")
+(print " Test OK:  " ok_count "\n")
+(print " Test ERR: " err_count "\n")
 (if (> err_count 0) 
-    (print "Self-test failed with " err_count " errors") 
-    (print "Self-test ok!"))
+    (print " TEST FAILURE(s)\n") 
+    (print " ALL OK!\n"))
+(print "--------------------------------------------\n")

@@ -65,16 +65,40 @@ class ISAtom {
             out = "(";
             break;
         case ISAtom::TokType::INT:
-            out = std::to_string(val);
+            switch (decor) {
+            case ASCII:
+                out = "(i)";
+                break;
+            case UNICODE:
+                out = "ⓘ ";
+                break;
+            case NONE:
+                out = "";
+                break;
+            }
+            out += std::to_string(val);
             break;
         case ISAtom::TokType::FLOAT:
-            out = std::to_string(valf);
+            switch (decor) {
+            case ASCII:
+                out = "(f)";
+                break;
+            case UNICODE:
+                out = "ⓕ ";
+                break;
+            case NONE:
+                out = "";
+                break;
+            }
+            out += std::to_string(valf);
             break;
         case ISAtom::TokType::STRING:
             switch (decor) {
             case ASCII:
+                out = "(s)\"" + vals + "\"";
+                break;
             case UNICODE:
-                out = "\"" + vals + "\"";
+                out = "ⓢ \"" + vals + "\"";
                 break;
             case NONE:
                 out = vals;
@@ -85,9 +109,9 @@ class ISAtom {
             switch (decor) {
             case UNICODE:
                 if (val == 0)
-                    out = "↳ⓕ";
+                    out = "ⓑ ḟ";
                 else
-                    out = "↳ⓣ";
+                    out = "ⓑ ṫ";
                 break;
                 break;
             case ASCII:
@@ -105,7 +129,7 @@ class ISAtom {
         case ISAtom::TokType::SYMBOL:
             switch (decor) {
             case UNICODE:
-                out = "ⓢ " + vals;
+                out = "⒮ " + vals;
                 break;
             case ASCII:
                 out = "(s)" + vals;
@@ -558,8 +582,8 @@ class IndraScheme {
         string out = pisa->str(decor);
         ISAtom *pN = pisa->pNext;
         if (decor) {
-            if (is_inbuilt(pisa->vals) || is_defined_func(pisa->vals)) out = "ⓕ " + out;
-            if (is_defined_symbol(pisa->vals, local_symbols)) out = "ⓢ " + out;
+            if (is_inbuilt(pisa->vals) || is_defined_func(pisa->vals)) out = "⒡ " + out;
+            if (is_defined_symbol(pisa->vals, local_symbols)) out = "⒮ " + out;
         }
         cout << out;
         if (pisa->pChild != nullptr) {
@@ -628,6 +652,12 @@ class IndraScheme {
         }
         ISAtom *pev = chainEval(pisa, local_symbols, true);
         pAllocs.push_back(pev);
+        if (getListLen(pev) != 2) {
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "Two operands required for <" + m_op + "> operation";
+            deleteList(pev, "cmp_2ops parcheck");
+            return pRes;
+        }
 
         ISAtom *pl = gca((ISAtom *)pev);
         if (pev->pChild) pl->pChild = copyList(pev->pChild);
@@ -1235,6 +1265,7 @@ class IndraScheme {
                 if (pV->pNext && pV->pNext->pChild) pT->pChild = copyList(pV->pNext->pChild, false);
                 symbols[pN->vals] = pT;
             } else {
+                if (symbols.find(pN->vals) != symbols.end()) deleteList(symbols[pN->vals], "DelSymOnUpdate", true);
                 ISAtom *pT = chainEval(pV, local_symbols, true);
                 symbols[pN->vals] = copyList(pT, false);
                 deleteList(pT, "makeDefine 1");  // XXX only 2nd argument? See QUOTE case
@@ -1766,11 +1797,18 @@ class IndraScheme {
 
         if (getListLen(pls) != 2 || (pls->pNext->t != ISAtom::TokType::STRING && pls->pNext->t != ISAtom::TokType::SYMBOL)) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'convtype' requires two operands (got: " + std::to_string(getListLen(pls)) + "), second needs to be a type, (got: " + tokTypeNames[pls->pNext->t] + "), valid types are: ";
-            for (int i = 0; i < tokTypeNames.size() - 1; i++) {
-                pRes->vals += "'" + tokTypeNames[i] + " ";
+            if (getListLen(pls) == 2) {
+                pRes->vals = "'convtype' requires two operands (got: " + std::to_string(getListLen(pls)) + "), second needs to be a type, (got: " + tokTypeNames[pls->pNext->t] + "), valid types are: ";
+                for (int i = 0; i < tokTypeNames.size() - 1; i++) {
+                    pRes->vals += "'" + tokTypeNames[i] + " ";
+                }
+            } else {
+                pRes->vals = "'convtype' requires two operands";
+
+                cout << "Convtype input: ";
+                print(pls, local_symbols, ISAtom::DecorType::UNICODE, true);
+                cout << endl;
             }
-            pRes->vals += " | In exprs: " + stringify(pls, local_symbols, ISAtom::DecorType::NONE, true);
             deleteList(pls, "evalConvtype 1");
             return pRes;
         }
@@ -2027,7 +2065,8 @@ class IndraScheme {
         return pRes;
     }
 
-    ISAtom *evalEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+    ISAtom *
+    evalEval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
         if (getListLen(pisa) < 1) {
             ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
@@ -2939,7 +2978,22 @@ class IndraScheme {
                         print(pisa->pNext, local_symbols, ISAtom::DecorType::NONE, true);
                         cout << endl;
                     }
-                    pRet = eval(pisa->pChild, local_symbols, true);
+                    ISAtom *pEv = pisa->pChild;
+                    ISAtom *pNx = pisa->pNext;
+
+                    pRet = eval(pEv, local_symbols, true);
+                    if (bShowEval) {
+                        cout << "EV" << endl
+                             << "pC: ";
+                        print(pEv, local_symbols, ISAtom::DecorType::UNICODE, true);
+                        cout << endl
+                             << "pCN: ";
+                        print(pEv->pNext, local_symbols, ISAtom::DecorType::UNICODE, true);
+                        cout << endl
+                             << "pN: ";
+                        print(pNx, local_symbols, ISAtom::DecorType::UNICODE, true);
+                        cout << endl;
+                    }
                     if (!pRet->pNext) {
                         pRet->pNext = copyList(pisa->pNext);
                         ISAtom *pRetT = eval(pRet, local_symbols, true);
@@ -2960,7 +3014,7 @@ class IndraScheme {
 
             if (bShowEval && pRet) {
                 cout << " = ";
-                print(pRet, local_symbols, ISAtom::DecorType::NONE, true);
+                print(pRet, local_symbols, ISAtom::DecorType::UNICODE, true);
                 cout << endl;
             }
 
