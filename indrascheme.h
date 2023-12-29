@@ -1765,10 +1765,11 @@ class IndraScheme {
 
         if (getListLen(pls) != 2 || (pls->pNext->t != ISAtom::TokType::STRING && pls->pNext->t != ISAtom::TokType::SYMBOL)) {
             pRes->t = ISAtom::TokType::ERROR;
-            pRes->vals = "'convtype' requires two operand, second needs to be a type, valid types are: ";
+            pRes->vals = "'convtype' requires two operands (got: " + std::to_string(getListLen(pls)) + "), second needs to be a type, (got: " + tokTypeNames[pls->pNext->t] + "), valid types are: ";
             for (int i = 0; i < tokTypeNames.size() - 1; i++) {
                 pRes->vals += "'" + tokTypeNames[i] + " ";
             }
+            pRes->vals += " | In exprs: " + stringify(pls, local_symbols, ISAtom::DecorType::NONE, true);
             deleteList(pls, "evalConvtype 1");
             return pRes;
         }
@@ -2904,7 +2905,7 @@ class IndraScheme {
         }
     }
 
-    ISAtom *eval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool func_only = false) {
+    ISAtom *eval(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols, bool func_only = false, bool bNested = false) {
         ISAtom *pN, *pRet = nullptr;  //, *pReti;
 
         ISAtom *p = (ISAtom *)pisa;
@@ -2931,7 +2932,24 @@ class IndraScheme {
                 pRet = lambda_eval(pisa->pNext, local_symbols, pvars, pisa->pChild->pNext->pNext);
                 deleteList(pvars, "LIST-LAMBDA");
             } else {
-                pRet = eval(pisa->pChild, local_symbols, true);
+                if (bNested && pisa->pNext && pisa->pNext->t != ISAtom::TokType::NIL) {
+                    if (bShowEval) {
+                        cout << "CONTINUE on list eval: ";
+                        print(pisa->pNext, local_symbols, ISAtom::DecorType::NONE, true);
+                        cout << endl;
+                    }
+                    pRet = eval(pisa->pChild, local_symbols, true);
+                    if (!pRet->pNext) {
+                        pRet->pNext = copyList(pisa->pNext);
+                        ISAtom *pRetT = eval(pRet, local_symbols, true);
+                        deleteList(pRet, "Indirect eval intermediate");
+                        pRet = pRetT;
+                    } else {
+                        cout << "INTERNAL ERROR Wrong assumption on indirect nexts!";
+                    }
+                } else {
+                    pRet = eval(pisa->pChild, local_symbols, true);
+                }
                 if (!pRet) {
                     cout << "EVAL returned nulltpr! ";
                     print(pisa, local_symbols, ISAtom::DecorType::UNICODE, true);
@@ -3013,6 +3031,7 @@ class IndraScheme {
         ISAtom *p = (ISAtom *)pisa, *pi, *pn;
         ISAtom *pCE = nullptr, *pCEi, *pCE_c = nullptr;
         bool is_quote = false;
+        bool bShowEval = false;
 
         vector<ISAtom *> pAllocs;
         while (p) {
@@ -3051,7 +3070,21 @@ class IndraScheme {
                     pCEi = copyList(pi);
                     is_quote = false;
                 } else {
-                    pCEi = eval(pi->pChild, local_symbols, true);
+                    if (pi->pChild->pChild) {
+                        if (bShowEval) {
+                            cout << "INDIRECT! ";
+                            print(pi->pChild, local_symbols, ISAtom::DecorType::UNICODE, true);
+                            cout << endl;
+                        }
+                        pCEi = eval(pi->pChild, local_symbols, true, true);
+                        if (bShowEval) {
+                            cout << "IND_RESU: ";
+                            print(pCEi, local_symbols, ISAtom::DecorType::UNICODE, true);
+                            cout << endl;
+                        }
+                    } else {
+                        pCEi = eval(pi->pChild, local_symbols, true);
+                    }
                 }
                 pAllocs.push_back(pCEi);
                 break;
