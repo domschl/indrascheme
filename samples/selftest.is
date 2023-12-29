@@ -82,6 +82,14 @@
     )
 )
 
+(if (== ((convtype "+" 'Symbol) 2 3) 5)
+    (print "Convtype indirect function generation OK\n")
+    (begin 
+        (print "Failure on Convtype indirect function generation\n") 
+        (define err_count (+ err_count 1))
+    )
+)
+
 ; Lists
 (let ((r (range 4)) (sum 0))
     (every 
