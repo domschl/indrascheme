@@ -535,6 +535,7 @@ class IndraScheme {
             ISAtom *errRes = gca();
             errRes->t = ISAtom::TokType::ERROR;
             errRes->vals = fullErr;
+            deleteList(pStart, "Parser Error");
             return errRes;
         }
         bool showParse = false;
