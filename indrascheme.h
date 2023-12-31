@@ -1303,6 +1303,7 @@ class IndraScheme {
             } else {
                 if (!err) {
                     pNa = pN->pChild;
+                    if (funcs.find(pNa->vals) != funcs.end()) deleteList(funcs[pNa->vals], "DelFuncOnUpdate", true);
                     ISAtom *pDef = copyList(pN, false);
                     funcs[pNa->vals] = pDef;
                     pRes->t = ISAtom::TokType::NIL;
