@@ -1273,9 +1273,14 @@ class IndraScheme {
                 if (pV->pNext && pV->pNext->pChild) pT->pChild = copyList(pV->pNext->pChild, false);
                 symbols[pN->vals] = pT;
             } else {
-                if (symbols.find(pN->vals) != symbols.end()) deleteList(symbols[pN->vals], "DelSymOnUpdate", true);
+                // if (symbols.find(pN->vals) != symbols.end()) deleteList(symbols[pN->vals], "DelSymOnUpdate", true);
                 ISAtom *pT = chainEval(pV, local_symbols, true);
                 symbols[pN->vals] = copyList(pT, false);
+
+                cout << "Define: " << pN->vals << " = ";
+                print(pT, local_symbols, ISAtom::DecorType::UNICODE, true);
+                cout << endl;
+              
                 deleteList(pT, "makeDefine 1");  // XXX only 2nd argument? See QUOTE case
             }
             deleteList(pRes, "makeDefine 2");
@@ -2962,7 +2967,7 @@ class IndraScheme {
         ISAtom *p = (ISAtom *)pisa;
         pN = p->pNext;
 
-        bool bShowEval = true;
+        bool bShowEval = false;
         if (bShowEval) {
             cout << "Eval: ";
             print(pisa, local_symbols, ISAtom::DecorType::NONE, true);
