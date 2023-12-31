@@ -1140,8 +1140,8 @@ class IndraScheme {
             default:
                 pRes->t = ISAtom::TokType::ERROR;
                 pRes->vals = "Op: " + m_op;
-              if (p) {
-                cout << "Type: " << p->t << endl;
+                if (p) {
+                    cout << "Type: " << p->t << endl;
                     pRes->vals += ", unhandled tokType: " + tokTypeNames[p->t] + " -> " + p->str();
                     if (p->t == ISAtom::TokType::ERROR) pRes->vals += ": " + p->vals;
                     for (auto p : pAllocs) {
