@@ -91,6 +91,8 @@ class ISAtom {
                 break;
             }
             out += std::to_string(valf);
+            // out.erase(out.find_last_not_of('0') + 1, std::string::npos);
+            // out.erase(out.find_last_not_of('.') + 1, std::string::npos);
             break;
         case ISAtom::TokType::STRING:
             switch (decor) {
@@ -1137,10 +1139,16 @@ class IndraScheme {
                 break;
             default:
                 pRes->t = ISAtom::TokType::ERROR;
-                pRes->vals = "Op: " + m_op + ", unhandled tokType: " + tokTypeNames[p->t] + " -> " + p->str();
-                if (p->t == ISAtom::TokType::ERROR) pRes->vals += ": " + p->vals;
-                for (auto p : pAllocs) {
-                    deleteList(p, "math_2ops +1");
+                pRes->vals = "Op: " + m_op;
+              if (p) {
+                cout << "Type: " << p->t << endl;
+                    pRes->vals += ", unhandled tokType: " + tokTypeNames[p->t] + " -> " + p->str();
+                    if (p->t == ISAtom::TokType::ERROR) pRes->vals += ": " + p->vals;
+                    for (auto p : pAllocs) {
+                        deleteList(p, "math_2ops +1");
+                    }
+                } else {
+                    pRes->vals += " nullptr argument";
                 }
                 return pRes;
                 break;
@@ -2128,6 +2136,8 @@ class IndraScheme {
                     case ISAtom::TokType::STRING:
                         if (source->vals == token->vals) found = true;
                         break;
+                    default:
+                        break;
                     }
                 }
                 if (!found) index++;
@@ -2951,7 +2961,7 @@ class IndraScheme {
         ISAtom *p = (ISAtom *)pisa;
         pN = p->pNext;
 
-        bool bShowEval = false;
+        bool bShowEval = true;
         if (bShowEval) {
             cout << "Eval: ";
             print(pisa, local_symbols, ISAtom::DecorType::NONE, true);
