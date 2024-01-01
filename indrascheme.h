@@ -1278,9 +1278,9 @@ class IndraScheme {
                 if (symbols.find(pN->vals) != symbols.end()) deleteList(symbols[pN->vals], "DelSymOnUpdate", true);
                 symbols[pN->vals] = copyList(pT, false);
 
-                cout << "Define: " << pN->vals << " = ";
-                print(pT, local_symbols, ISAtom::DecorType::UNICODE, true);
-                cout << endl;
+                //cout << "Define: " << pN->vals << " = ";
+                //print(pT, local_symbols, ISAtom::DecorType::UNICODE, true);
+                //cout << endl;
               
                 deleteList(pT, "makeDefine 1");  // XXX only 2nd argument? See QUOTE case
             }
@@ -1308,9 +1308,9 @@ class IndraScheme {
                 pRes->vals = "'define' function requires symbol as first operand (name) and optional symbols identifying parameters";
             } else {
                 if (!err) {
+                    ISAtom *pDef = copyList(pN, false);
                     pNa = pN->pChild;
                     if (funcs.find(pNa->vals) != funcs.end()) deleteList(funcs[pNa->vals], "DelFuncOnUpdate", true);
-                    ISAtom *pDef = copyList(pN, false);
                     funcs[pNa->vals] = pDef;
                     pRes->t = ISAtom::TokType::NIL;
                 }
@@ -2968,10 +2968,10 @@ class IndraScheme {
         ISAtom *p = (ISAtom *)pisa;
         pN = p->pNext;
 
-        bool bShowEval = true;
+        bool bShowEval = false;
         if (bShowEval) {
             cout << "Eval: ";
-            print(pisa, local_symbols, ISAtom::DecorType::NONE, true);
+            print(pisa, local_symbols, ISAtom::DecorType::UNICODE, true);
             cout << endl;
         }
 
@@ -2991,14 +2991,14 @@ class IndraScheme {
             } else {
                 if (bNested && pisa->pNext && pisa->pNext->t != ISAtom::TokType::NIL) {
                     if (bShowEval) {
-                        cout << "CONTINUE on list eval: ";
-                        print(pisa->pNext, local_symbols, ISAtom::DecorType::NONE, true);
+                      cout << "CONTINUE on list eval:" << endl << "Cn: ";
+                        print(pisa->pNext, local_symbols, ISAtom::DecorType::UNICODE, true);
+                        cout << endl << "Cc: ";
+                        print(pisa->pChild, local_symbols, ISAtom::DecorType::UNICODE, true);
                         cout << endl;
                     }
                     ISAtom *pEv = pisa->pChild;
                     ISAtom *pNx = pisa->pNext;
-
-                    pRet = eval(pEv, local_symbols, true);
                     if (bShowEval) {
                         cout << "EV" << endl
                              << "pC: ";
@@ -3010,6 +3010,12 @@ class IndraScheme {
                              << "pN: ";
                         print(pNx, local_symbols, ISAtom::DecorType::UNICODE, true);
                         cout << endl;
+                    }
+
+                    if (pEv->pChild) {
+                      pRet = eval(pEv, local_symbols, true, true);
+                    } else {
+                        pRet = eval(pEv, local_symbols, true);
                     }
                     if (!pRet->pNext) {
                         pRet->pNext = copyList(pisa->pNext);

@@ -108,16 +108,16 @@
     )
 )
 
-;(if (== (((convtype "convtype" 'Symbol) "+" 'Symbol) 2 3) 5)
-;    (begin
-;       (print "Convtype 2 x indirect function generation OK\n")
-;        (define ok_count (+ ok_count 1))
-;    ) 
-;    (begin 
-;        (print "Failure on Convtype 2 x indirect function generation\n") 
-;        (define err_count (+ err_count 1))
-;    )
-;)
+(if (== (((convtype "convtype" 'Symbol) "+" 'Symbol) 2 3) 5)
+    (begin
+       (print "Convtype 2 x indirect function generation OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
+    (begin 
+        (print "Failure on Convtype 2 x indirect function generation\n") 
+        (define err_count (+ err_count 1))
+    )
+)
 
 ; Lists
 (let ((r (range 4)) (sum 0))
