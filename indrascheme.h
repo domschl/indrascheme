@@ -1665,8 +1665,12 @@ class IndraScheme {
             pRes->vals = "'evalEvery' requires at least 2 operands";
             return pRes;
         }
-
-        ISAtom *pL = eval(pisa->pNext, local_symbols);
+        ISAtom *pL;
+        //if (pisa->pNext->t == ISAtom::TokType::QUOTE) {
+        //    pL = copyList(pisa->pNext->pNext);
+        //} else {
+            pL = eval(pisa->pNext, local_symbols);
+        //}
         if (pL->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
             pRes->vals = "'evalEvery' requires a list as 2nd operand, got: " + tokTypeNames[pL->t] + " " + pL->vals;
@@ -2981,8 +2985,6 @@ class IndraScheme {
         switch (p->t) {
         case ISAtom::TokType::QUOTE:
             pRet = copyList(pN);
-            // pRet = copyList(p);
-            // cout << "BUGGY?";
             return pRet;
             break;
         case ISAtom::TokType::LIST:
