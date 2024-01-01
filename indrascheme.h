@@ -1578,7 +1578,6 @@ class IndraScheme {
     }
 
     ISAtom *evalPrint(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
-        // ISAtom *pisa = copyList(pisa_o);
         if (getListLen(pisa) < 1) {
             ISAtom *pRes = gca();
             pRes->t = ISAtom::TokType::ERROR;
@@ -1587,8 +1586,15 @@ class IndraScheme {
         }
         // ISAtom *pP = pisa;
         ISAtom *pResS = chainEval(pisa, local_symbols, true);
+        if (getListLen(pResS) < 1) {
+            ISAtom *pRes = gca();
+            pRes->t = ISAtom::TokType::ERROR;
+            pRes->vals = "'print' requires at least 1 operand (after eval): <expr> [<expr>]...";
+            deleteList(pResS, "evalPrint 1.0");
+            return pRes;
+        }
         print(pResS, local_symbols, ISAtom::DecorType::NONE, false);
-        deleteList(pResS, "evalPrint 1");
+        deleteList(pResS, "evalPrint 1.1");
         pResS = gca();
         return pResS;
     }
@@ -1666,10 +1672,10 @@ class IndraScheme {
             return pRes;
         }
         ISAtom *pL;
-        //if (pisa->pNext->t == ISAtom::TokType::QUOTE) {
-        //    pL = copyList(pisa->pNext->pNext);
-        //} else {
-            pL = eval(pisa->pNext, local_symbols);
+        // if (pisa->pNext->t == ISAtom::TokType::QUOTE) {
+        //     pL = copyList(pisa->pNext->pNext);
+        // } else {
+        pL = eval(pisa->pNext, local_symbols);
         //}
         if (pL->t != ISAtom::TokType::LIST) {
             pRes->t = ISAtom::TokType::ERROR;
@@ -1684,15 +1690,27 @@ class IndraScheme {
         bool first = true;
 
         p = pL->pChild;
+
+        //cout << "Every-args: ";
+        //print(p, local_symbols, ISAtom::DecorType::UNICODE, true);
+        //cout << endl;
+
         while (p && p->t != ISAtom::TokType::NIL) {
             pFi = gca();
             pFi->t = ISAtom::TokType::LIST;
             pFi->pChild = gca(pisa);
             if (pisa->pChild) pFi->pChild->pChild = copyList(pisa->pChild);
             pFi->pChild->pNext = gca(p);
+            if (p->t == ISAtom::TokType::QUOTE) {
+                p = p->pNext;
+                pFi->pChild->pNext->pNext = gca(p);
+                pFi->pChild->pNext->pNext->pNext = gca();
+                pFi->pChild->pNext->pNext->pNext->t = ISAtom::TokType::NIL;
+            } else {
+                pFi->pChild->pNext->pNext = gca();
+                pFi->pChild->pNext->pNext->t = ISAtom::TokType::NIL;
+            }
             if (p->pChild) pFi->pChild->pNext->pChild = copyList(p->pChild);
-            pFi->pChild->pNext->pNext = gca();
-            pFi->pChild->pNext->pNext->t = ISAtom::TokType::NIL;
             ISAtom *pR = eval(pFi, local_symbols);
             if (first) {
                 pCn->pChild = pR;
@@ -1761,9 +1779,18 @@ class IndraScheme {
             pParamI = pFi->pChild;
             for (int j = 0; j < parmCnt; j++) {
                 pParamI->pNext = gca(pParams[j]);
-                if (pParams[j]->pChild) pParamI->pNext->pChild = copyList(pParams[j]->pChild);
-                pParams[j] = pParams[j]->pNext;
-                pParamI = pParamI->pNext;
+                if (pParams[j]->t == ISAtom::TokType::QUOTE) {
+                    pParamI = pParamI->pNext;
+                    pParams[j] = pParams[j]->pNext;
+                    pParamI->pNext = gca(pParams[j]);
+                    if (pParams[j]->pChild) pParamI->pNext->pChild = copyList(pParams[j]->pChild);
+                    pParams[j] = pParams[j]->pNext;
+                    pParamI = pParamI->pNext;
+                } else {
+                    if (pParams[j]->pChild) pParamI->pNext->pChild = copyList(pParams[j]->pChild);
+                    pParams[j] = pParams[j]->pNext;
+                    pParamI = pParamI->pNext;
+                }
             }
             bool bShowMap = false;
             if (bShowMap) {

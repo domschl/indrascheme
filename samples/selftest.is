@@ -119,20 +119,28 @@
     )
 )
 
-;(let ((source '(1 2 3 4))
-;      (dest '(Int Float String Bool))
-;      (res '(1 1 "1" #t)))
-;      (map (lambda (x y z) (print x ": " y "->" z "\n") (== (convtype x y) z) (begin
-;               (print "Convtype map array OK\n")
-;               (define ok_count (+ ok_count 1))
-;           ) 
-;           (begin 
-;               (print "Failure on Convtype map array\n") 
-;               (define err_count (+ err_count 1))
-;           ))
-;           source dest res
-;       )
-;)
+(let ((source '(1 2 3 4 1.0 2.0 3.0 4.0))
+      (dest '('Int 'Float 'String 'Boolean 'Int 'Float 'String 'Boolean))
+      (res '(1 2.00000 "3" #t 1 2.00000 "3.000000" #t)))
+      (map (lambda (x y z)
+          (begin
+              ; XXX open issue: printing the type directly loses a '() mem
+              ; mem-loss on y: (print " " x y z)
+              ; ok: (print x ": " (stringify y) "->" z "\n")
+              (if (== (convtype x y) z)
+                  (begin
+                      (print "Convtype map array OK\n")
+                      (define ok_count (+ ok_count 1))
+                  ) 
+                  (begin 
+                      (print "Failure on Convtype map array\n") 
+                      (define err_count (+ err_count 1))
+                  )
+               )
+           ))
+           source dest res
+       )
+)
       
 
 ; Lists
