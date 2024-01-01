@@ -144,6 +144,9 @@ class ISAtom {
             // default:
             //     out = "<UNEXPECTED: " + tokTypeNames[];
             //     break;
+        case ISAtom::TokType::INVALID:
+            out = "<Internal-error: Invalid>";
+            break;
         }
         return out;
     }
@@ -1278,10 +1281,10 @@ class IndraScheme {
                 if (symbols.find(pN->vals) != symbols.end()) deleteList(symbols[pN->vals], "DelSymOnUpdate", true);
                 symbols[pN->vals] = copyList(pT, false);
 
-                //cout << "Define: " << pN->vals << " = ";
-                //print(pT, local_symbols, ISAtom::DecorType::UNICODE, true);
-                //cout << endl;
-              
+                // cout << "Define: " << pN->vals << " = ";
+                // print(pT, local_symbols, ISAtom::DecorType::UNICODE, true);
+                // cout << endl;
+
                 deleteList(pT, "makeDefine 1");  // XXX only 2nd argument? See QUOTE case
             }
             deleteList(pRes, "makeDefine 2");
@@ -2991,9 +2994,11 @@ class IndraScheme {
             } else {
                 if (bNested && pisa->pNext && pisa->pNext->t != ISAtom::TokType::NIL) {
                     if (bShowEval) {
-                      cout << "CONTINUE on list eval:" << endl << "Cn: ";
+                        cout << "CONTINUE on list eval:" << endl
+                             << "Cn: ";
                         print(pisa->pNext, local_symbols, ISAtom::DecorType::UNICODE, true);
-                        cout << endl << "Cc: ";
+                        cout << endl
+                             << "Cc: ";
                         print(pisa->pChild, local_symbols, ISAtom::DecorType::UNICODE, true);
                         cout << endl;
                     }
@@ -3013,7 +3018,7 @@ class IndraScheme {
                     }
 
                     if (pEv->pChild) {
-                      pRet = eval(pEv, local_symbols, true, true);
+                        pRet = eval(pEv, local_symbols, true, true);
                     } else {
                         pRet = eval(pEv, local_symbols, true);
                     }

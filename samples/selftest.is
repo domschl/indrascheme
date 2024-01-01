@@ -119,6 +119,22 @@
     )
 )
 
+;(let ((source '(1 2 3 4))
+;      (dest '(Int Float String Bool))
+;      (res '(1 1 "1" #t)))
+;      (map (lambda (x y z) (print x ": " y "->" z "\n") (== (convtype x y) z) (begin
+;               (print "Convtype map array OK\n")
+;               (define ok_count (+ ok_count 1))
+;           ) 
+;           (begin 
+;               (print "Failure on Convtype map array\n") 
+;               (define err_count (+ err_count 1))
+;           ))
+;           source dest res
+;       )
+;)
+      
+
 ; Lists
 (let ((r (range 4)) (sum 0))
     (every 
