@@ -177,7 +177,7 @@ class IndraScheme {
     inbuilts["set!"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return setLocalDefine(pisa, local_symbols); };
     inbuilts["begin"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalBegin(pisa, local_symbols); };
     inbuilts["if"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalIf(pisa, local_symbols); };
-    // inbuilts["cond"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalCond(pisa, local_symbols); };
+    inbuilts["cond"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalCond(pisa, local_symbols); };
     inbuilts["while"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalWhile(pisa, local_symbols); };
     inbuilts["print"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalPrint(pisa, local_symbols); };
     inbuilts["indentedstringify"] = [&](ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) -> ISAtom * { return evalIndentedStringify(pisa, local_symbols); };
@@ -284,6 +284,17 @@ class IndraScheme {
       p = p->pNext;
     }
     return len;
+  }
+
+  const ISAtom *getListArgN(const ISAtom *pisa, int n) {
+    if (n < 0 || n >= getListLen(pisa)) return nullptr;
+    ISAtom *p = (ISAtom *)pisa;
+    int i = 0;
+    while (p && i < n) {
+      if (p->t != ISAtom::TokType::QUOTE && p->t != ISAtom::TokType::NIL) ++i;
+      p = p->pNext;
+    }
+    return p;
   }
 
   ISAtom *copyList(const ISAtom *pisa, bool bRegister = true) {
@@ -1469,6 +1480,42 @@ class IndraScheme {
     return chainEval(pisa, local_symbols, false);
   }
 
+  ISAtom *evalCond(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
+    ISAtom *pRes = gca();
+    if (getListLen(pisa) < 1) {
+      pRes->t = ISAtom::TokType::ERROR;
+      pRes->vals = "'cond' requires 1 or more operands";
+      return pRes;
+    }
+    for (int i = 0; i < getListLen(pisa); i++) {
+      const ISAtom *ci = getListArgN(pisa, i);
+      if (ci->t != ISAtom::TokType::LIST || getListLen(ci->pChild) != 2) {
+        pRes->t = ISAtom::TokType::ERROR;
+        pRes->vals = "'cond' operands must be lists with two elements (condition and expression), index " + std::to_string(i) + " invalid";
+        return pRes;
+      }
+      ISAtom *cond = copyAtom(ci->pChild);
+      ISAtom *pR = eval(cond, local_symbols);
+      deleteList(cond, "cond 00");
+      if (pR->t != ISAtom::TokType::BOOLEAN) {
+        pRes->t = ISAtom::TokType::ERROR;
+        pRes->vals = "'cond' first operands must eval to boolean, index " + std::to_string(i) + " invalid";
+        deleteList(pR, "cond 01");
+        return pRes;
+      }
+      if (!pR->val) {
+        deleteList(pR, "cond 02");
+        continue;
+      } else {
+        deleteList(pR, "cond 03");
+        deleteList(pRes, "cond 04");
+        return eval(ci->pChild->pNext, local_symbols);
+      }
+    }
+    pRes->t = ISAtom::TokType::NIL;
+    return pRes;
+  }
+
   ISAtom *evalIf(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
     ISAtom *pRes = gca();
     if (getListLen(pisa) != 2 && getListLen(pisa) != 3) {
@@ -2514,9 +2561,6 @@ class IndraScheme {
     pRes->pNext = copyList(c2->pChild);
     deleteList(c2, "cons 3");
     deleteList(c1, "cons 3.1");
-    cout << "CONS-RES: ";
-    print(pStart, local_symbols, ISAtom::DecorType::UNICODE, true);
-    cout << endl;
     return pStart;
   }
 
@@ -3011,7 +3055,7 @@ class IndraScheme {
         pRet = eval_symbol(pisa, local_symbols);
       } else {
         if (func_only) {
-          ISAtom *pS = gca(pisa);   // copyAtom?
+          ISAtom *pS = gca(pisa);  // copyAtom?
           ISAtom *pResolve = eval_symbol(pS, local_symbols);
           if (pResolve->t == ISAtom::TokType::STRING || pResolve->t == ISAtom::TokType::SYMBOL) {
             string func_name = pResolve->vals;

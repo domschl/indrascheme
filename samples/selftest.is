@@ -83,6 +83,23 @@
     )
 )
 
+; cond
+(if (== (let ((t 3)) (cond
+   ((== t 1) "one")
+   ((== t 2) "two")
+   ((== t 3) "three")
+   ((== t 4) "four")
+   )) "three")
+    (begin
+        (print "Conv enum OK\n")
+        (define ok_count (+ ok_count 1))
+    ) 
+    (begin
+        (print "Failure on conv enum\n") 
+        (define err_count (+ err_count 1))
+    )
+)
+
 ; types
 (if (== (convtype "1" 'Int) 1)
     (begin
