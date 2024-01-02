@@ -277,7 +277,11 @@ class IndraScheme {
 
   int getListLen(const ISAtom *pisa) {
     int len = 0;
-    const ISAtom *p = pisa;
+    if (!pisa) {
+      cout << "INTERNAL: getListLen of nullptr" << endl;
+      return 0;
+    }
+    ISAtom *p=(ISAtom *)pisa;
     while (p) {
       if (p->t != ISAtom::TokType::QUOTE && p->t != ISAtom::TokType::NIL) ++len;
       p = p->pNext;
@@ -300,8 +304,12 @@ class IndraScheme {
     gcd(pisa, context, bUnregistered);
   }
 
-  ISAtom *copyAtom(const ISAtom *pisa, bool bRegister = true) {
-    if (pisa == nullptr) return gca(nullptr, bRegister);
+  ISAtom *copyAtom(const ISAtom *pisa, bool *pbQuoted = nullptr, bool bRegister = true) {
+    if (pisa == nullptr) {
+      ISAtom *pRes = gca(nullptr, bRegister);
+      if (pbQuoted) *pbQuoted = false;
+      return pRes;
+    }
     ISAtom *p = gca(pisa, bRegister);
     ISAtom *pRet = p;
     if (p->t == ISAtom::TokType::QUOTE) {
@@ -310,10 +318,14 @@ class IndraScheme {
       if (pisa->pNext->pChild) {
         p->pChild = copyList(pisa->pNext->pChild);
       }
+      if (pbQuoted) {
+        *pbQuoted = true;
+      }
     } else {
       if (pisa->pChild) {
         p->pChild = copyList(pisa->pChild);
       }
+      if (pbQuoted) *pbQuoted = false;
     }
     return pRet;
   }
@@ -1296,7 +1308,7 @@ class IndraScheme {
       if (pV->t == ISAtom::TokType::QUOTE) {
         // ISAtom *pT = gca(pV->pNext, false);
         // if (pV->pNext && pV->pNext->pChild) pT->pChild = copyList(pV->pNext->pChild, false);
-        ISAtom *pT = copyAtom(pV->pNext, false);
+        ISAtom *pT = copyAtom(pV->pNext, nullptr, false);
         symbols[pN->vals] = pT;
       } else {
         // ISAtom *pVT = copyList(pV);
@@ -1912,8 +1924,8 @@ class IndraScheme {
       return pRes;
     }
     ISAtom *source = copyAtom(pls);
-    //ISAtom *source = gca(pls);
-    //if (pls->pChild) source->pChild = copyList(pls->pChild);
+    // ISAtom *source = gca(pls);
+    // if (pls->pChild) source->pChild = copyList(pls->pChild);
     deleteList(pls, "convType 3");
     //     vector<string>  = {"Nil", "Error", "Int", "Float", "String", "Boolean", "Symbol", "Quote", "List", "Invalid: internal error"};
     pRes->t = ISAtom::TokType::ERROR;
@@ -2463,10 +2475,10 @@ class IndraScheme {
       return pRes;
     }
     deleteList(pRes, "listIndex 4");
-    
-    //if (p->t == ISAtom::TokType::QUOTE) p = p->pNext;
-    //pRes = gca(p);
-    //if (p->pChild) pRes = copyList(p->pChild);
+
+    // if (p->t == ISAtom::TokType::QUOTE) p = p->pNext;
+    // pRes = gca(p);
+    // if (p->pChild) pRes = copyList(p->pChild);
     pRes = copyAtom(p);
     deleteList(pls, "listIndex 5");
     return pRes;
@@ -2527,14 +2539,14 @@ class IndraScheme {
       r2 = pls->pNext->pNext->val;
     } else if (getListLen(pls) == 2 && pls->t == ISAtom::TokType::LIST && pls->pNext->t == ISAtom::TokType::INT) {
       r1 = pls->pNext->val;
-      r2 = getListLen(pls->pChild)-r1;
+      r2 = getListLen(pls->pChild) - r1;
     } else {
       pRes->t = ISAtom::TokType::ERROR;
       pRes->vals = "'sublist' requires a list and one or two INT operands, got " + std::to_string(getListLen(pls));
       deleteList(pls, "listSublist 1");
       return pRes;
     }
-    if (r1>getListLen(pls->pChild)) {
+    if (r1 > getListLen(pls->pChild)) {
       pRes->t = ISAtom::TokType::ERROR;
       pRes->vals = "'sublist' start-index out-of-range";
       deleteList(pls, "listSublist 1");
@@ -2548,25 +2560,25 @@ class IndraScheme {
     ISAtom *pS = pls->pChild;
     for (int i = 0; i < getListLen(pls->pChild); i++) {
       cout << i << " " << r1 << " " << r2 << endl;
-      if (i >= r1 && i < r1+r2) {
+      if (i >= r1 && i < r1 + r2) {
         if (first) {
-          first=false;
+          first = false;
           p->pChild = copyAtom(pS);
           if (p->pChild->t == ISAtom::TokType::QUOTE) {
-            p=p->pChild->pNext;
-            pS=pS->pNext->pNext;
+            p = p->pChild->pNext;
+            pS = pS->pNext->pNext;
           } else {
-            p=p->pChild;
-            pS=pS->pNext;
+            p = p->pChild;
+            pS = pS->pNext;
           }
         } else {
           p->pNext = copyAtom(pS);
           if (p->pNext->t == ISAtom::TokType::QUOTE) {
-            p=p->pNext->pNext;
-            pS=pS->pNext->pNext;
+            p = p->pNext->pNext;
+            pS = pS->pNext->pNext;
           } else {
-            p=p->pNext;
-            pS=pS->pNext;
+            p = p->pNext;
+            pS = pS->pNext;
           }
         }
         /*
@@ -2590,7 +2602,7 @@ class IndraScheme {
         pS = pS->pNext;
         */
       } else {
-        if (pS->t==ISAtom::TokType::QUOTE) {
+        if (pS->t == ISAtom::TokType::QUOTE) {
           pS = pS->pNext;
         }
         pS = pS->pNext;
@@ -2624,24 +2636,30 @@ class IndraScheme {
   ISAtom *listCons(const ISAtom *pisa, vector<map<string, ISAtom *>> &local_symbols) {
     ISAtom *pRes = gca();
     ISAtom *pStart = pRes;
-    ISAtom *pls = chainEval(pisa, local_symbols, true);
+    ISAtom *pls;
+
+    pls = chainEval(pisa, local_symbols, true);
     if (getListLen(pls) != 2) {
       pRes->t = ISAtom::TokType::ERROR;
       pRes->vals = "'cons' requires two args";
+      deleteList(pls, "cons 01");
       return pRes;
     }
-    ISAtom *c1 = copyAtom(pls);
-    //ISAtom *c1 = gca(pls);
-    //if (pls->pChild) c1->pChild = copyList(pls->pChild);
-
-    ISAtom *c2 = copyAtom(pls->pNext);
-    //ISAtom *c2 = copyList(pls->pNext);
-    //deleteList(pls, "listCons 0");
-    // if (c2->t == ISAtom::TokType::QUOTE) {
-    //     ISAtom *c2_n = copyList(c2->pNext);
-    //     deleteList(c2, "listCons 1");
-    //     c2 = c2_n;
-    // }
+    ISAtom *pNA;
+    bool bC1Quoted;
+    ISAtom *c1 = copyAtom(pls, &bC1Quoted);
+    if (bC1Quoted) {
+      pNA=pls->pNext->pNext;
+    } else {
+      pNA=pls->pNext;
+    }
+    ISAtom *c2;
+    if (pNA->t == ISAtom::TokType::QUOTE) {
+      c2 = copyList(pNA->pNext);
+    } else {
+      c2 = copyList(pNA);
+    }
+    deleteList(pls, "listCons 0");
     if (c2->t != ISAtom::TokType::LIST) {
       pRes->t = ISAtom::TokType::ERROR;
       pRes->vals = "'cons' 2nd arg needs to eval to list (e.g. quoted list)";
@@ -2649,25 +2667,16 @@ class IndraScheme {
       deleteList(c1, "listCons 2.1");
       return pRes;
     }
-    // pRes->t = ISAtom::TokType::QUOTE;
-    // pRes->pNext = gca();
-    // pRes = pRes->pNext;
-    pRes->t = ISAtom::TokType::LIST;
+    pRes->t = ISAtom::TokType::LIST;    
     pRes->pChild = copyAtom(c1);
-    //pRes->pChild = gca(c1);
     pRes = pRes->pChild;
-    //if (c1->pChild) pRes->pChild = copyList(c1->pChild);
+    if (bC1Quoted) pRes = pRes->pNext;
     pRes->pNext = copyList(c2->pChild);
     deleteList(c2, "cons 3");
     deleteList(c1, "cons 3.1");
-    deleteList(pls, "cons 3.2");
-    // pisa = c2->pChild;
-    // while (pisa) {
-    //     pRes->pNext = gca(pisa);
-    //     if (pisa->pChild) pRes->pNext->pChild = copyList(pisa->pChild);
-    //     pRes = pRes->pNext;
-    //     pisa = pisa->pNext;
-    // }
+    cout << "CONS-RES: ";
+    print(pStart, local_symbols, ISAtom::DecorType::UNICODE, true);
+    cout << endl;
     return pStart;
   }
 
@@ -2692,8 +2701,8 @@ class IndraScheme {
       return pRes;
     }
     ISAtom *pCar = copyAtom(pls->pChild);
-    //ISAtom *pCar = gca(pls->pChild);
-    //if (pls->pChild->pChild) pCar->pChild = copyList(pls->pChild->pChild);
+    // ISAtom *pCar = gca(pls->pChild);
+    // if (pls->pChild->pChild) pCar->pChild = copyList(pls->pChild->pChild);
     deleteList(pRes, "car 2");
     deleteList(pls, "car 3");
     return pCar;
