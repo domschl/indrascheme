@@ -315,7 +315,7 @@ class IndraScheme {
     if (p->t == ISAtom::TokType::QUOTE) {
       p->pNext = gca(pisa->pNext, bRegister);
       p = p->pNext;
-      if (pisa->pNext->pChild) {
+      if (pisa->pNext && pisa->pNext->pChild) {
         p->pChild = copyList(pisa->pNext->pChild);
       }
       if (pbQuoted) {
@@ -3036,8 +3036,9 @@ class IndraScheme {
         pInp = pInp->pNext;
         bQuoted = true;
       }
-      ISAtom *pS = gca(pInp);
-      if (pInp->pChild) pS->pChild = copyList(pInp->pChild);
+      ISAtom *pS = copyAtom(pInp);
+      // ISAtom *pS = gca(pInp);
+      // if (pInp->pChild) pS->pChild = copyList(pInp->pChild);
       pS->pNext = gca();
       /*
       cout << "L_EV_1: " << var_name << " -> ";
@@ -3077,8 +3078,9 @@ class IndraScheme {
     string fun_name = pisa->vals;
     if (is_defined_func(fun_name)) {
       ISAtom *pDef = funcs[fun_name];
-      ISAtom *pvars = gca(pDef);
-      if (pDef->pChild) pvars->pChild = copyList(pDef->pChild);
+      ISAtom *pvars = copyAtom(pDef);
+      // ISAtom *pvars = gca(pDef);
+      // if (pDef->pChild) pvars->pChild = copyList(pDef->pChild);
       ISAtom *pfunc = pDef->pNext;
       ISAtom *p = lambda_eval(pisa->pNext, local_symbols, pvars, pfunc, 1);
       deleteList(pRes, "ev_func 1");
@@ -3111,8 +3113,9 @@ class IndraScheme {
       break;
     case ISAtom::TokType::LIST:
       if (pisa->pChild->vals == "lambda") {
-        ISAtom *pvars = gca(pisa->pChild->pNext);
-        if (pisa->pChild->pNext->pChild) pvars->pChild = copyList(pisa->pChild->pNext->pChild);
+        ISAtom *pvars = copyAtom(pisa->pChild->pNext);
+        //ISAtom *pvars = gca(pisa->pChild->pNext);
+        //if (pisa->pChild->pNext->pChild) pvars->pChild = copyList(pisa->pChild->pNext->pChild);
         pRet = lambda_eval(pisa->pNext, local_symbols, pvars, pisa->pChild->pNext->pNext);
         deleteList(pvars, "LIST-LAMBDA");
       } else {
@@ -3181,6 +3184,7 @@ class IndraScheme {
         pRet = eval_symbol(pisa, local_symbols);
       } else {
         if (func_only) {
+          // ISAtom *pS = copyAtom(pisa);
           ISAtom *pS = gca(pisa);
           ISAtom *pResolve = eval_symbol(pS, local_symbols);
           if (pResolve->t == ISAtom::TokType::STRING || pResolve->t == ISAtom::TokType::SYMBOL) {
@@ -3224,8 +3228,9 @@ class IndraScheme {
         pRet->vals = "Undefined expression: " + pisa->str();
         return pRet;
       } else {
-        pRet = gca(p);
-        if (p->pChild) pRet->pChild = copyList(p->pChild);
+        pRet = copyAtom(p);
+        //pRet = gca(p);
+        //if (p->pChild) pRet->pChild = copyList(p->pChild);
         return pRet;
       }
       break;
@@ -3248,8 +3253,9 @@ class IndraScheme {
       pn = p->pNext;
       p->pNext = nullptr;
 
-      pi = gca(p);
-      if (p->pChild) pi->pChild = copyList(p->pChild);
+      pi = copyAtom(p);
+      //pi = gca(p);
+      //if (p->pChild) pi->pChild = copyList(p->pChild);
       pAllocs.push_back(pi);
 
       switch (pi->t) {
@@ -3297,8 +3303,9 @@ class IndraScheme {
         break;
       default:
         is_quote = false;
-        pCEi = gca(pi);
-        if (p->pChild) pCEi->pChild = copyList(p->pChild);
+        pCEi = copyAtom(pi);
+        //pCEi = gca(pi);
+        //if (p->pChild) pCEi->pChild = copyList(p->pChild);
         pAllocs.push_back(pCEi);
         break;
       }
