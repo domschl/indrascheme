@@ -281,7 +281,7 @@ class IndraScheme {
       cout << "INTERNAL: getListLen of nullptr" << endl;
       return 0;
     }
-    ISAtom *p=(ISAtom *)pisa;
+    ISAtom *p = (ISAtom *)pisa;
     while (p) {
       if (p->t != ISAtom::TokType::QUOTE && p->t != ISAtom::TokType::NIL) ++len;
       p = p->pNext;
@@ -2649,9 +2649,9 @@ class IndraScheme {
     bool bC1Quoted;
     ISAtom *c1 = copyAtom(pls, &bC1Quoted);
     if (bC1Quoted) {
-      pNA=pls->pNext->pNext;
+      pNA = pls->pNext->pNext;
     } else {
-      pNA=pls->pNext;
+      pNA = pls->pNext;
     }
     ISAtom *c2;
     if (pNA->t == ISAtom::TokType::QUOTE) {
@@ -2667,7 +2667,7 @@ class IndraScheme {
       deleteList(c1, "listCons 2.1");
       return pRes;
     }
-    pRes->t = ISAtom::TokType::LIST;    
+    pRes->t = ISAtom::TokType::LIST;
     pRes->pChild = copyAtom(c1);
     pRes = pRes->pChild;
     if (bC1Quoted) pRes = pRes->pNext;
@@ -2761,11 +2761,9 @@ class IndraScheme {
       return pRes;
     }
 
-    ISAtom *pIns = gca(pls->pNext);
-    if (pls->pNext->pChild) pIns->pChild = copyList(pls->pNext->pChild);
-
-    ISAtom *pApp = gca(pls);
-    if (pls->pChild) pApp->pChild = copyList(pls->pChild);
+    ISAtom *pIns;
+    ISAtom *pApp = copyAtom(pls);
+    pIns = copyAtom(pls->pNext);
 
     ISAtom *p = pApp->pChild;
     ISAtom *pL = nullptr;
