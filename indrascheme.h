@@ -162,7 +162,6 @@ class IndraScheme {
   bool memDbg = true;
 
   IndraScheme() {
-
     for (auto cm_op : "+-*/%") {
       if (cm_op == 0) continue;
       string m_op{cm_op};
